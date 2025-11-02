@@ -1,5 +1,4 @@
-import 'dart:math';
-
+// REMOVED: import 'dart:math'; (No longer needed)
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +6,9 @@ import 'package:provider/provider.dart';
 import 'package:trackai/core/constants/appcolors.dart';
 import 'package:trackai/core/themes/theme_provider.dart';
 import 'package:trackai/features/home/ai-options/service/recipe_results_screen.dart';
+
+// ADDED: Import for the Gemini Service
+import 'package:trackai/features/settings/service/geminiservice.dart';
 
 class AIRecipeGenerator extends StatefulWidget {
   const AIRecipeGenerator({Key? key}) : super(key: key);
@@ -29,7 +31,7 @@ class _AIRecipeGeneratorState extends State<AIRecipeGenerator> {
   String _selectedCuisine = '';
   String _selectedMealType = '';
   bool _isGenerating = false;
-  Map<String, dynamic>? _generatedRecipe;
+  // REMOVED: _generatedRecipe (No longer needed here, passed directly to next screen)
 
   // Options
   final List<String> _displayCuisineOptions = [
@@ -114,6 +116,7 @@ class _AIRecipeGeneratorState extends State<AIRecipeGenerator> {
     );
   }
 
+  // --- THIS IS THE REFACTORED FUNCTION ---
   Future<void> _generateRecipe() async {
     if (!_validateCurrentPage()) {
       _showValidationSnackBar('Please complete all required steps.');
@@ -125,28 +128,33 @@ class _AIRecipeGeneratorState extends State<AIRecipeGenerator> {
     });
 
     try {
-      final ingredients = _ingredientsController.text.split(',').length;
-      final cuisine = _selectedCuisine.toLowerCase();
-      final mealType = _selectedMealType.toLowerCase();
+      // 1. Create the input map for the Gemini Service
+      final userInput = {
+        'ingredients': _ingredientsController.text.trim(),
+        'cuisine': _selectedCuisine,
+        'mealType': _selectedMealType,
+        'restrictions': _restrictionsController.text.trim(),
+      };
 
-      final inferredServings = _calculateServings(ingredients, mealType);
-      final inferredTime = _calculateCookingTime(cuisine, mealType, ingredients);
-      final inferredDifficulty = _calculateDifficulty(inferredTime);
+      // 2. Call the Gemini Service to generate the recipe
+      // This returns the full recipe map from the API
+      final Map<String, dynamic> recipe =
+      await GeminiService.generateRecipe(userInput: userInput);
 
-      await Future.delayed(const Duration(seconds: 3));
-
-      final recipe = _createRecipe(inferredServings, inferredTime, inferredDifficulty);
-
-      // Navigate to results screen instead of showing in page view
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => RecipeResultsScreen(
-            recipe: recipe,
-            onNewRecipe: _resetForm,
+      // 3. Navigate to the results screen with the API-generated recipe
+      // The service also adds 'generatedOn' and 'userInput' keys,
+      // which RecipeResultsScreen will just ignore, which is fine.
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => RecipeResultsScreen(
+              recipe: recipe,
+              onNewRecipe: _resetForm,
+            ),
           ),
-        ),
-      );
+        );
+      }
 
       setState(() {
         _isGenerating = false;
@@ -159,7 +167,7 @@ class _AIRecipeGeneratorState extends State<AIRecipeGenerator> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error generating recipe: $e'),
+            content: Text('Error generating recipe: ${e.toString().replaceFirst("Exception: ", "")}'),
             backgroundColor: Colors.red,
           ),
         );
@@ -170,7 +178,7 @@ class _AIRecipeGeneratorState extends State<AIRecipeGenerator> {
   void _resetForm() {
     setState(() {
       _currentPage = 0;
-      _generatedRecipe = null;
+      // _generatedRecipe = null; // No longer needed
       _ingredientsController.clear();
       _restrictionsController.clear();
       _cuisineController.clear();
@@ -180,212 +188,7 @@ class _AIRecipeGeneratorState extends State<AIRecipeGenerator> {
     _pageController.jumpToPage(0);
   }
 
-  // ... Keep all your helper methods (_calculateServings, _calculateCookingTime,
-  // _calculateDifficulty, _createRecipe, _generateRecipeName, etc.) exactly as they were ...
 
-  // Only include the helper methods that are used in _createRecipe
-  int _calculateServings(int ingredientCount, String mealType) {
-    int baseServings = 2;
-    if (ingredientCount > 5) baseServings = 4;
-    if (ingredientCount > 8) baseServings = 6;
-    if (mealType == 'dinner') baseServings += 1;
-    if (mealType == 'snack') baseServings = max(2, baseServings - 1);
-    return baseServings;
-  }
-
-  String _calculateCookingTime(String cuisine, String mealType, int ingredientCount) {
-    int baseTime = 20;
-    if (cuisine.contains('indian') || cuisine.contains('italian')) baseTime += 15;
-    if (cuisine.contains('chinese') || cuisine.contains('thai')) baseTime += 10;
-    if (mealType == 'dinner') baseTime += 10;
-    if (mealType == 'breakfast') baseTime -= 5;
-    if (mealType == 'snack') baseTime -= 10;
-    baseTime += (ingredientCount * 2);
-    return baseTime.toString();
-  }
-
-  String _calculateDifficulty(String cookingTime) {
-    int time = int.tryParse(cookingTime) ?? 30;
-    if (time < 20) return 'Easy (Under 20 min)';
-    if (time <= 40) return 'Medium (20-40 min)';
-    if (time <= 60) return 'Hard (40-60 min)';
-    return 'Expert (60+ min)';
-  }
-
-  Map<String, dynamic> _createRecipe(int inferredServings, String inferredTime, String inferredDifficulty) {
-    final ingredients = _ingredientsController.text.split(',').map((e) => e.trim()).toList();
-    final servings = inferredServings;
-    final cookingTime = inferredTime;
-    final cuisineText = _selectedCuisine;
-
-    String recipeName = _generateRecipeName(ingredients, cuisineText, _selectedMealType);
-    List<String> recipeIngredients = _generateRecipeIngredients(ingredients, servings);
-    List<String> instructions = _generateInstructions(ingredients, cuisineText, _selectedMealType);
-    final nutritionalInfo = _generateNutritionalInfo(ingredients, servings);
-    final tips = _generateTips(cuisineText, _selectedMealType);
-
-    return {
-      'name': recipeName,
-      'description': 'A delicious ${cuisineText.toLowerCase()} ${_selectedMealType.toLowerCase()} recipe made with ${ingredients.take(3).join(', ')}.',
-      'prepTime': '${(int.tryParse(cookingTime) ?? 30) ~/ 3} minutes',
-      'cookTime': '$cookingTime minutes',
-      'totalTime': '${(int.tryParse(cookingTime) ?? 30) + ((int.tryParse(cookingTime) ?? 30) ~/ 3)} minutes',
-      'servings': servings,
-      'difficulty': inferredDifficulty,
-      'cuisine': cuisineText,
-      'mealType': _selectedMealType,
-      'ingredients': recipeIngredients,
-      'instructions': instructions,
-      'nutritionalInfo': nutritionalInfo,
-      'tips': tips,
-      'generatedOn': DateTime.now().toString().split(' ')[0],
-    };
-  }
-
-  String _generateRecipeName(List<String> ingredients, String cuisine, String mealType) {
-    String mainIngredient = ingredients.isNotEmpty ? ingredients[0] : 'Mixed';
-    Map<String, List<String>> cuisineStyles = {
-      'Italian': ['Pasta', 'Risotto', 'Frittata', 'Bruschetta'],
-      'Chinese': ['Stir-fry', 'Fried Rice', 'Noodles', 'Dumplings'],
-      'Indian': ['Curry', 'Masala', 'Biryani', 'Dal'],
-      'Mexican': ['Tacos', 'Quesadillas', 'Burrito Bowl', 'Enchiladas'],
-      'Mediterranean': ['Salad', 'Grilled', 'Stuffed', 'Roasted'],
-      'American': ['Sandwich', 'Burger', 'Skillet', 'Casserole'],
-      'Thai': ['Pad', 'Tom', 'Larb', 'Curry'],
-      'Japanese': ['Teriyaki', 'Tempura', 'Donburi', 'Miso'],
-      'French': ['Sauté', 'Ratatouille', 'Quiche', 'Tarte'],
-    };
-    List<String> styles = cuisineStyles[cuisine] ?? ['Special', 'Delicious', 'Homestyle', 'Classic'];
-    String style = styles[0];
-    return '$style $mainIngredient ${mealType.toLowerCase().replaceAll('Breakfast', 'Bowl').replaceAll('Lunch', 'Plate').replaceAll('Dinner', 'Feast')}';
-  }
-
-  List<String> _generateRecipeIngredients(List<String> baseIngredients, int servings) {
-    List<String> recipeIngredients = [];
-    for (String ingredient in baseIngredients) {
-      if (ingredient.trim().isNotEmpty) {
-        String quantity = _getIngredientQuantity(ingredient, servings);
-        recipeIngredients.add('$quantity ${ingredient.trim()}');
-      }
-    }
-    recipeIngredients.addAll(_getCommonIngredients(_selectedMealType, servings));
-    return recipeIngredients;
-  }
-
-  String _getIngredientQuantity(String ingredient, int servings) {
-    Map<String, String> quantities = {
-      'chicken': '${servings * 4} oz',
-      'beef': '${servings * 4} oz',
-      'fish': '${servings * 4} oz',
-      'rice': '${servings ~/ 2} cups',
-      'pasta': '${servings * 3} oz',
-      'onion': '${(servings / 2).ceil()} medium',
-      'garlic': '${servings * 2} cloves',
-      'tomato': '${servings} medium',
-      'potato': '${servings} medium',
-      'oil': '2-3 tbsp',
-      'salt': 'to taste',
-      'pepper': 'to taste',
-    };
-    for (String key in quantities.keys) {
-      if (ingredient.toLowerCase().contains(key)) {
-        return quantities[key]!;
-      }
-    }
-    return '${servings ~/ 2 + 1}';
-  }
-
-  List<String> _getCommonIngredients(String mealType, int servings) {
-    switch (mealType) {
-      case 'Breakfast':
-        return ['2 tbsp Olive oil', 'Salt to taste', 'Black pepper to taste', '1 tsp Herbs (optional)'];
-      case 'Lunch':
-      case 'Dinner':
-        return ['3 tbsp Cooking oil', 'Salt to taste', 'Black pepper to taste', '2 cloves Garlic', '1 medium Onion'];
-      case 'Snack':
-        return ['1 tbsp Oil', 'Pinch of salt', 'Spices to taste'];
-      case 'Dessert':
-        return ['2 tbsp Sugar', '1 tsp Vanilla extract', 'Pinch of salt'];
-      default:
-        return ['Salt to taste', 'Pepper to taste', '1 tbsp Oil'];
-    }
-  }
-
-  List<String> _generateInstructions(List<String> ingredients, String cuisine, String mealType) {
-    List<String> instructions = [];
-    instructions.add('Prepare all ingredients by washing, chopping, and measuring as needed.');
-    if (cuisine.toLowerCase().contains('italian')) {
-      instructions.add('Heat olive oil in a large pan over medium heat.');
-      instructions.add('Sauté garlic and onions until fragrant and translucent.');
-    } else if (cuisine.toLowerCase().contains('chinese')) {
-      instructions.add('Heat oil in a wok or large skillet over high heat.');
-      instructions.add('Stir-fry ingredients quickly, starting with harder vegetables.');
-    } else if (cuisine.toLowerCase().contains('indian')) {
-      instructions.add('Heat oil in a heavy-bottomed pan and add whole spices.');
-      instructions.add('Add onions and cook until golden brown.');
-    } else {
-      instructions.add('Heat oil in a large pan over medium-high heat.');
-      instructions.add('Add onions and cook until softened.');
-    }
-    instructions.add('Add the main ingredients (${ingredients.take(2).join(', ')}) and cook according to their requirements.');
-    instructions.add('Season with salt, pepper, and any additional spices to taste.');
-    instructions.add('Cook until all ingredients are tender and flavors are well combined.');
-    instructions.add('Adjust seasoning if needed and serve hot.');
-    instructions.add('Garnish as desired and enjoy your homemade ${cuisine.toLowerCase()} ${mealType.toLowerCase()}!');
-    return instructions;
-  }
-
-  Map<String, String> _generateNutritionalInfo(List<String> ingredients, int servings) {
-    int baseCalories = 200;
-    int baseProtein = 15;
-    int baseCarbs = 20;
-    int baseFat = 8;
-    for (String ingredient in ingredients) {
-      if (ingredient.toLowerCase().contains('chicken') ||
-          ingredient.toLowerCase().contains('beef') ||
-          ingredient.toLowerCase().contains('fish')) {
-        baseCalories += 150;
-        baseProtein += 20;
-        baseFat += 5;
-      } else if (ingredient.toLowerCase().contains('rice') ||
-          ingredient.toLowerCase().contains('pasta') ||
-          ingredient.toLowerCase().contains('potato')) {
-        baseCalories += 100;
-        baseCarbs += 25;
-      } else if (ingredient.toLowerCase().contains('oil') ||
-          ingredient.toLowerCase().contains('butter')) {
-        baseCalories += 80;
-        baseFat += 10;
-      }
-    }
-    return {
-      'calories': '${baseCalories ~/ servings} kcal per serving',
-      'protein': '${baseProtein ~/ servings}g',
-      'carbs': '${baseCarbs ~/ servings}g',
-      'fat': '${baseFat ~/ servings}g',
-      'fiber': '3-5g',
-      'sodium': 'Varies by seasoning'
-    };
-  }
-
-  List<String> _generateTips(String cuisine, String mealType) {
-    List<String> tips = [
-      'Always taste and adjust seasoning before serving',
-      'Prep all ingredients before you start cooking for easier workflow',
-      'Use fresh ingredients when possible for the best flavor',
-    ];
-    if (cuisine.toLowerCase().contains('italian')) {
-      tips.add('Use good quality olive oil for authentic Italian flavor');
-      tips.add('Don\'t overcook pasta - it should be al dente');
-    } else if (cuisine.toLowerCase().contains('chinese')) {
-      tips.add('Keep the heat high for proper stir-frying technique');
-      tips.add('Have all ingredients ready before you start cooking');
-    } else if (cuisine.toLowerCase().contains('indian')) {
-      tips.add('Toast whole spices before grinding for maximum flavor');
-      tips.add('Let the dish simmer to allow flavors to develop');
-    }
-    return tips;
-  }
 
   @override
   Widget build(BuildContext context) {

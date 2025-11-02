@@ -31,7 +31,7 @@ class GeminiService {
           .collection('users')
           .doc(user.uid)
           .collection('gymkitDetails') // Consistent Subcollection Name
-          .doc('mealPlan')             // Consistent Fixed Document ID
+          .doc('mealPlan') // Consistent Fixed Document ID
           .get();
 
       if (docSnapshot.exists) {
@@ -69,12 +69,14 @@ class GeminiService {
       await _firestore
           .collection('users')
           .doc(user.uid)
-          .collection('gymkitDetails') // Subcollection Name (same as workoutPlan)
-          .doc('mealPlan')            // Fixed Document ID
+          .collection(
+          'gymkitDetails') // Subcollection Name (same as workoutPlan)
+          .doc('mealPlan') // Fixed Document ID
           .set(planData, SetOptions(merge: false)); // Overwrite existing data
 
-      print('Meal plan successfully saved to Firestore at /users/${user.uid}/gymkitDetails/mealPlan.');
-
+      print(
+          'Meal plan successfully saved to Firestore at /users/${user
+              .uid}/gymkitDetails/mealPlan.');
     } catch (e) {
       print('Firestore failed to save the meal plan: $e');
       throw Exception('Failed to save the meal plan: ${e.toString()}');
@@ -175,7 +177,11 @@ class GeminiService {
                 {'text': prompt}
               ]
             }
-          ]
+          ],
+          // UPDATED: Added temperature
+          'generationConfig': {
+            'temperature': 0.1,
+          },
         }),
       );
 
@@ -188,7 +194,8 @@ class GeminiService {
               "Request blocked due to safety settings. Please adjust your inputs (e.g., health conditions).");
         }
 
-        final content = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        final content =
+        data['candidates']?[0]?['content']?['parts']?[0]?['text'];
 
         if (content != null) {
           final parsed = _parseMealPlanResponse(content);
@@ -209,16 +216,20 @@ class GeminiService {
         }
       } else {
         String errorMessage =
-            'Failed to connect to the AI service (Code: ${response.statusCode}).';
+            'Failed to connect to the AI service (Code: ${response
+            .statusCode}).';
         try {
           final errorData = jsonDecode(response.body);
           errorMessage = errorData['error']?['message'] ?? errorMessage;
-        } catch (_) { /* Ignore parsing error */ }
+        } catch (_) {
+          /* Ignore parsing error */
+        }
         throw Exception(errorMessage);
       }
     } catch (e) {
       throw Exception(
-          "Meal plan generation failed: ${e.toString().replaceFirst("Exception: ", "")}");
+          "Meal plan generation failed: ${e.toString().replaceFirst(
+              "Exception: ", "")}");
     }
   }
 
@@ -239,10 +250,14 @@ class GeminiService {
     // Build the user info block dynamically
     final userInfo = StringBuffer();
     if (age != null) userInfo.writeln('Age: $age');
-    if (gender != null && gender.isNotEmpty) userInfo.writeln('Gender: $gender');
-    if (weight != null && weight.isNotEmpty) userInfo.writeln('Weight: $weight');
-    if (height != null && height.isNotEmpty) userInfo.writeln('Height: $height');
-    if (goal != null && goal.isNotEmpty) userInfo.writeln('Fitness Goal: $goal');
+    if (gender != null && gender.isNotEmpty)
+      userInfo.writeln('Gender: $gender');
+    if (weight != null && weight.isNotEmpty)
+      userInfo.writeln('Weight: $weight');
+    if (height != null && height.isNotEmpty)
+      userInfo.writeln('Height: $height');
+    if (goal != null && goal.isNotEmpty)
+      userInfo.writeln('Fitness Goal: $goal');
     userInfo.writeln('Calorie Goals: $calorieGoals kcal per day.');
     if (healthConditions != null && healthConditions.isNotEmpty) {
       userInfo.writeln(
@@ -250,14 +265,14 @@ class GeminiService {
     }
     if (allergies != null && allergies.isNotEmpty) {
       userInfo.writeln(
-          'IMPORTANT Allergies: ${allergies.join(', ')}. The meal plan MUST NOT contain these allergens.');
+          'IMPORTANT Allergies: ${allergies.join(
+              ', ')}. The meal plan MUST NOT contain these allergens.');
     }
     if (dietType != null && dietType.isNotEmpty) {
       userInfo.writeln('Diet Type: $dietType');
     }
     if (cuisinePreference != null && cuisinePreference.isNotEmpty) {
-      userInfo
-          .writeln('Preferred Cuisine/Preferences: $cuisinePreference');
+      userInfo.writeln('Preferred Cuisine/Preferences: $cuisinePreference');
     }
 
     // This is the prompt from your JS file, formatted for Dart.
@@ -340,7 +355,9 @@ Do not include markdown backticks (```json) or any text outside the JSON object.
       return null; // JSON parsing failed
     }
   }
-  static Future<Map<String, dynamic>?> calculateNutritionGoals({
+
+  // UPDATED: Removed fallback logic
+  static Future<Map<String, dynamic>> calculateNutritionGoals({
     required Map<String, dynamic> onboardingData,
   }) async {
     try {
@@ -358,7 +375,8 @@ Do not include markdown backticks (```json) or any text outside the JSON object.
       // Make API call with correct model name
       final response = await http.post(
         Uri.parse(
-            '$_baseUrl/models/gemini-2.0-flash:generateContent?key=$_apiKey'), // Using 2.5-flash
+            '$_baseUrl/models/gemini-2.0-flash:generateContent?key=$_apiKey'),
+        // Using 2.0-flash
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'contents': [
@@ -369,7 +387,7 @@ Do not include markdown backticks (```json) or any text outside the JSON object.
             }
           ],
           'generationConfig': {
-            'temperature': 0.1,
+            'temperature': 0.1, // Already 0.1
             'topP': 0.8,
             'topK': 40,
             'maxOutputTokens': 2048,
@@ -385,21 +403,26 @@ Do not include markdown backticks (```json) or any text outside the JSON object.
         if (content != null) {
           final parsed = _parseGeminiResponse(content);
           if (parsed != null) return parsed;
+          // CORRECTED: Throw exception if parsing fails
+          throw Exception("Failed to parse AI nutrition response.");
         }
-        // If parsing fails, fall through to fallback
-        print('Gemini API Error or bad parse: ${response.statusCode} - ${response.body}');
-        return _calculateFallbackGoals(onboardingData, age, bmi);
+        // CORRECTED: Throw exception if no content
+        throw Exception("No content received from AI.");
       } else {
         print('Gemini API Error: ${response.statusCode} - ${response.body}');
-        return _calculateFallbackGoals(onboardingData, age, bmi);
+        // CORRECTED: Throw exception on API error
+        throw Exception(
+            'Failed to connect to AI service: ${response.statusCode}');
       }
     } catch (e) {
       print('GeminiService Error: $e');
-      final age = _calculateAge(onboardingData['dateOfBirth']);
-      final bmi = _calculateBMI(onboardingData);
-      return _calculateFallbackGoals(onboardingData, age, bmi);
+      // CORRECTED: Re-throw the exception instead of falling back
+      throw Exception(
+          "Nutrition calculation failed: ${e.toString().replaceFirst(
+              "Exception: ", "")}");
     }
   }
+
   static Future<Map<String, dynamic>> getBodyCompositionAnalysis({
     required int age,
     required String gender, // Should be 'male' or 'female' (lowercase)
@@ -414,7 +437,8 @@ Do not include markdown backticks (```json) or any text outside the JSON object.
     // --- Initialize the Generative Model ---
     final model = GenerativeModel(
       // --- Use gemini-1.5-flash as requested and ensure correct name ---
-      model: 'gemini-2.0-flash', // Use 'gemini-1.5-flash-latest' or specific version
+      model:
+      'gemini-2.0-flash', // Use 'gemini-1.5-flash-latest' or specific version
       apiKey: _apiKey,
       generationConfig: GenerationConfig(
         temperature: 0.1, // Low temp for factual calculation
@@ -429,7 +453,9 @@ Do not include markdown backticks (```json) or any text outside the JSON object.
     );
 
     // --- Construct the Prompt ---
-    final prompt = _createBodyCompositionPrompt(age, gender, weightKg, heightCm, activityLevel);
+    final prompt =
+    _createBodyCompositionPrompt(
+        age, gender, weightKg, heightCm, activityLevel);
 
     print('--- Sending Body Comp Prompt to Gemini ---');
     // print(prompt); // Keep for debugging if needed
@@ -441,14 +467,20 @@ Do not include markdown backticks (```json) or any text outside the JSON object.
 
       print('--- Gemini Body Comp Response ---');
       // print('Response Text: ${response.text}'); // Keep for debugging
-      print('Finish Reason: ${response.promptFeedback?.blockReason ?? response.candidates.first.finishReason}'); // Check block/finish reason
+      print(
+          'Finish Reason: ${response.promptFeedback?.blockReason ??
+              response.candidates.first
+                  .finishReason}'); // Check block/finish reason
       print('-------------------------------');
-
 
       // Check for blocked prompt first
       if (response.promptFeedback?.blockReason != null) {
-        print('Gemini blocked the prompt: ${response.promptFeedback!.blockReason}');
-        throw Exception("Request blocked due to safety settings (${response.promptFeedback!.blockReason}). Please check inputs.");
+        print(
+            'Gemini blocked the prompt: ${response.promptFeedback!
+                .blockReason}');
+        throw Exception(
+            "Request blocked due to safety settings (${response.promptFeedback!
+                .blockReason}). Please check inputs.");
       }
 
       // Check if the response text is valid JSON
@@ -458,7 +490,8 @@ Do not include markdown backticks (```json) or any text outside the JSON object.
         final finishReason = response.candidates.first.finishReason;
         if (finishReason != null && finishReason != FinishReason.stop) {
           print('Gemini Finish Reason: $finishReason');
-          throw Exception("AI generation stopped unexpectedly ($finishReason). Please try again.");
+          throw Exception(
+              "AI generation stopped unexpectedly ($finishReason). Please try again.");
         }
         throw Exception('Empty response received from AI analysis.');
       }
@@ -467,31 +500,37 @@ Do not include markdown backticks (```json) or any text outside the JSON object.
       try {
         final Map<String, dynamic> analysis = json.decode(responseText);
         // Basic validation: Check if essential keys exist
-        if (analysis.containsKey('healthIndicator') && analysis.containsKey('BMI')) {
+        if (analysis.containsKey('healthIndicator') &&
+            analysis.containsKey('BMI')) {
           print('Parsed Gemini Body Comp Result: Success');
           return analysis;
         } else {
           print('Parsed Gemini JSON missing expected keys.');
-          throw Exception('AI returned data in an unexpected format. Please try again.');
+          throw Exception(
+              'AI returned data in an unexpected format. Please try again.');
         }
       } catch (e) {
         print('Error parsing Gemini JSON response: $e');
         print('Raw response text: $responseText');
-        throw Exception('Failed to understand the AI response format. Please try again.');
+        throw Exception(
+            'Failed to understand the AI response format. Please try again.');
       }
-
     } on FormatException catch (e) {
       print('JSON Format Exception during Body Comp: $e');
-      throw Exception('The AI response was not in the expected JSON format. Please try again.');
+      throw Exception(
+          'The AI response was not in the expected JSON format. Please try again.');
     } catch (e) {
       print('Error during Gemini API call for Body Comp: $e');
       // Rethrow a user-friendly message or the original exception
-      throw Exception('Failed to get AI analysis: ${e.toString().replaceFirst("Exception: ", "")}');
+      throw Exception(
+          'Failed to get AI analysis: ${e.toString().replaceFirst(
+              "Exception: ", "")}');
     }
   }
 
   // Helper to create the specific body composition prompt
-  static String _createBodyCompositionPrompt(int age, String gender, double weightKg, double heightCm, String activityLevel) {
+  static String _createBodyCompositionPrompt(int age, String gender,
+      double weightKg, double heightCm, String activityLevel) {
     // *** THIS IS THE NEW PROMPT YOU PROVIDED ***
     return '''
 You are an expert exercise physiologist and nutritionist. Your task is to calculate a comprehensive body composition report based on user-provided data. Use established formulas where possible and provide well-reasoned estimates for metrics that typically require specialized equipment.
@@ -547,8 +586,8 @@ Ensure all outputs are numbers (use floating point numbers where appropriate, e.
   "Body Composition Score": 78
 }
 ''';
-
   }
+
   static String _mapWorkoutFrequencyToActivityLevel(String workoutFrequency) {
     // NOTE: You must adjust these values to match your
     // 'workoutFrequency' options from your onboarding flow.
@@ -563,6 +602,7 @@ Ensure all outputs are numbers (use floating point numbers where appropriate, e.
         return 'light'; // Default fallback
     }
   }
+
   static String _createNutritionPrompt(Map data, int? age, double? bmi) {
     final String activityLevel = _mapWorkoutFrequencyToActivityLevel(
       data['workoutFrequency'] ?? 'light',
@@ -578,14 +618,20 @@ Ensure all outputs are numbers (use floating point numbers where appropriate, e.
     dynamic targetTimeframe = data['targetTimeframe']; // This is in weeks
 
     // Ensure types are correct, converting from dynamic
-    final double? targetWeightChangeKg = (targetAmount is num) ? targetAmount.toDouble() : null;
-    final int? timeFrameWeeks = (targetTimeframe is num) ? targetTimeframe.toInt() : null;
+    final double? targetWeightChangeKg =
+    (targetAmount is num) ? targetAmount.toDouble() : null;
+    final int? timeFrameWeeks =
+    (targetTimeframe is num) ? targetTimeframe.toInt() : null;
 
     // It ensures weight loss is negative and gain is positive for the prompt.
     double? finalTargetChangeKg = targetWeightChangeKg;
-    if (goal == 'weight_loss' && targetWeightChangeKg != null && targetWeightChangeKg > 0) {
+    if (goal == 'weight_loss' &&
+        targetWeightChangeKg != null &&
+        targetWeightChangeKg > 0) {
       finalTargetChangeKg = -targetWeightChangeKg;
-    } else if (goal == 'weight_gain' && targetWeightChangeKg != null && targetWeightChangeKg < 0) {
+    } else if (goal == 'weight_gain' &&
+        targetWeightChangeKg != null &&
+        targetWeightChangeKg < 0) {
       finalTargetChangeKg = -targetWeightChangeKg;
     }
 
@@ -652,7 +698,9 @@ User Details:
 - Height: ${height.toStringAsFixed(1)} cm
 - Activity Level: $activityLevel
 - Goal: $goal
-${(finalTargetChangeKg != null) ? '- Target Weight Change: $finalTargetChangeKg kg' : ''}
+${(finalTargetChangeKg != null)
+        ? '- Target Weight Change: $finalTargetChangeKg kg'
+        : ''}
 ${(timeFrameWeeks != null) ? '- Timeframe: $timeFrameWeeks weeks' : ''}
 
 Output the results strictly in the JSON format you were trained on, with these exact fields:
@@ -666,6 +714,7 @@ Output the results strictly in the JSON format you were trained on, with these e
 "explanation": "[string explanation]"
 ''';
   }
+
   static Map<String, dynamic>? _parseGeminiResponse(String content) {
     try {
       // The content should be a clean JSON string if responseMimeType works
@@ -724,152 +773,15 @@ Output the results strictly in the JSON format you were trained on, with these e
     }
   }
 
-  /// Fallback calculation method when Gemini API is unavailable
-  static Map<String, dynamic> _calculateFallbackGoals(
-      Map data,
-      int? age,
-      double? bmi,
-      ) {
-    try {
-      print('Using fallback nutrition calculation...');
-      final bmr = _calculateBMR(data, age);
-      final activityMultiplier =
-      _getActivityMultiplier(data['workoutFrequency']);
-      final tdee = (bmr * activityMultiplier).round();
-      final calories = _adjustCaloriesForGoal(tdee, data['goal']);
-      final macros = _calculateMacrosForGoal(calories, data['goal'], data);
+  // --- REMOVED FALLBACK FUNCTIONS ---
+  // _calculateFallbackGoals
+  // _calculateBMR
+  // _getActivityMultiplier
+  // _adjustCaloriesForGoal
+  // _calculateMacrosForGoal
+  // _getFallbackExplanation
+  // --- END OF REMOVED FALLBACK FUNCTIONS ---
 
-      return {
-        'calories': calories,
-        'protein': macros['protein'],
-        'carbs': macros['carbs'],
-        'fat': macros['fat'],
-        'fiber': macros['fiber'],
-        'bmr': bmr.round(),
-        'tdee': tdee,
-        'explanation':
-        _getFallbackExplanation(data, calories, bmr.round(), tdee),
-      };
-    } catch (e) {
-      print('Error in fallback calculation: $e');
-      return {
-        'calories': 2000,
-        'protein': 125,
-        'carbs': 250,
-        'fat': 67,
-        'fiber': 28,
-        'bmr': 1600,
-        'tdee': 2000,
-        'explanation':
-        'Basic nutrition goals based on standard recommendations. For personalized goals, please ensure your profile information is complete and try recalculating.',
-      };
-    }
-  }
-
-  static double _calculateBMR(Map data, int? age) {
-    final gender = (data['gender'] ?? 'male').toLowerCase();
-    // Use the reliable kg/cm values
-    double weight = (data['weightKg'] ?? 70).toDouble();
-    double height = (data['heightCm'] ?? 170).toDouble();
-
-    final ageValue = age ?? 25;
-    if (gender == 'female') {
-      return 447.593 + (9.247 * weight) + (3.098 * height) - (4.330 * ageValue);
-    } else {
-      return 88.362 + (13.397 * weight) + (4.799 * height) - (5.677 * ageValue);
-    }
-  }
-
-  static double _getActivityMultiplier(String? workoutFrequency) {
-    switch (workoutFrequency?.toLowerCase()) {
-      case 'never':
-      case 'sedentary':
-        return 1.2;
-      case '1-2 times per week':
-      case 'lightly active':
-        return 1.375;
-      case '3-4 times per week':
-      case 'moderately active':
-        return 1.55;
-      case '5-6 times per week':
-      case 'very active':
-        return 1.725;
-      case 'daily':
-      case 'extremely active':
-        return 1.9;
-      default:
-        return 1.375; // Default to lightly active
-    }
-  }
-
-  static int _adjustCaloriesForGoal(int tdee, String? goal) {
-    switch ((goal ?? '').toLowerCase()) {
-      case 'lose_weight':
-      case 'weight loss':
-      case 'cut':
-        return (tdee * 0.80).round(); // 20% deficit
-      case 'gain_weight':
-      case 'weight gain':
-      case 'bulk':
-      case 'muscle gain':
-        return (tdee * 1.10).round(); // 10% surplus
-      default:
-        return tdee;
-    }
-  }
-
-  static Map<String, int> _calculateMacrosForGoal(
-      int calories,
-      String? goal,
-      Map data,
-      ) {
-    // Use the reliable kg value
-    double weightKg = (data['weightKg'] ?? 70).toDouble();
-
-    int protein, fat, carbs, fiber;
-    switch ((goal ?? '').toLowerCase()) {
-      case 'lose_weight':
-      case 'weight loss':
-      case 'cut':
-        protein = (weightKg * 2.2).round();
-        fat = (calories * 0.25 / 9).round();
-        break;
-      case 'gain_weight':
-      case 'weight gain':
-      case 'bulk':
-      case 'muscle gain':
-        protein = (weightKg * 2.0).round();
-        fat = (calories * 0.25 / 9).round();
-        break;
-      default:
-        protein = (weightKg * 1.8).round();
-        fat = (calories * 0.25 / 9).round();
-    }
-    final proteinCalories = protein * 4;
-    final fatCalories = fat * 9;
-    final remainingCalories = calories - proteinCalories - fatCalories;
-    carbs = (remainingCalories / 4).round().clamp(0, 1000);
-    fiber = (calories / 1000 * 14).round();
-    return {
-      'protein': protein,
-      'carbs': carbs,
-      'fat': fat,
-      'fiber': fiber,
-    };
-  }
-
-  static String _getFallbackExplanation(
-      Map data,
-      int calories,
-      int bmr,
-      int tdee,
-      ) {
-    final goal = data['goal'] ?? 'maintain weight';
-    final workoutFrequency = data['workoutFrequency'] ?? 'moderate';
-    return 'Based on your profile, your BMR is $bmr kcal and your TDEE is $tdee kcal. '
-        'For your goal of ${goal.toLowerCase()}, we recommend $calories calories daily. '
-        'Your macros are set to support your ${workoutFrequency.toLowerCase()} activity level and ${goal.toLowerCase()} objective.';
-  }
   static Future<Map<String, dynamic>?> calculateCaloriesBurned({
     required String activityDescriptionWithDuration, // Combined description
     required double userWeightKg,
@@ -880,34 +792,52 @@ Output the results strictly in the JSON format you were trained on, with these e
       }
 
       // Create the specific prompt for calorie burn
-      final prompt = _createCalorieBurnPrompt(activityDescriptionWithDuration, userWeightKg);
+      final prompt =
+      _createCalorieBurnPrompt(activityDescriptionWithDuration, userWeightKg);
 
       print('--- Sending Prompt to Gemini ---');
       print(prompt);
       print('-------------------------------');
 
-
       final response = await http.post(
-        Uri.parse('$_baseUrl/models/gemini-2.0-flash:generateContent?key=$_apiKey'), // Or your preferred model
+        Uri.parse(
+            '$_baseUrl/models/gemini-2.0-flash:generateContent?key=$_apiKey'),
+        // Or your preferred model
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'contents': [
             {
-              'parts': [ {'text': prompt} ]
+              'parts': [
+                {'text': prompt}
+              ]
             }
           ],
           'generationConfig': {
-            // Adjust config as needed, requesting JSON is crucial
-            'temperature': 0.2, // Lower temp for more deterministic results
+            // UPDATED: Set temperature to 0.1
+            'temperature': 0.1,
+            // Lower temp for more deterministic results
             'maxOutputTokens': 1024,
-            'responseMimeType': 'application/json', // IMPORTANT: Request JSON output
+            'responseMimeType': 'application/json',
+            // IMPORTANT: Request JSON output
           },
           // Optional safety settings (adjust if needed)
           'safetySettings': [
-            {'category': 'HARM_CATEGORY_HARASSMENT', 'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
-            {'category': 'HARM_CATEGORY_HATE_SPEECH', 'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
-            {'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
-            {'category': 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold': 'BLOCK_MEDIUM_AND_ABOVE'},
+            {
+              'category': 'HARM_CATEGORY_HARASSMENT',
+              'threshold': 'BLOCK_MEDIUM_AND_ABOVE'
+            },
+            {
+              'category': 'HARM_CATEGORY_HATE_SPEECH',
+              'threshold': 'BLOCK_MEDIUM_AND_ABOVE'
+            },
+            {
+              'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+              'threshold': 'BLOCK_MEDIUM_AND_ABOVE'
+            },
+            {
+              'category': 'HARM_CATEGORY_DANGEROUS_CONTENT',
+              'threshold': 'BLOCK_MEDIUM_AND_ABOVE'
+            },
           ]
         }),
       );
@@ -917,28 +847,33 @@ Output the results strictly in the JSON format you were trained on, with these e
       print('Body: ${response.body}');
       print('-----------------------');
 
-
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         final data = jsonDecode(response.body);
 
         // Check for safety blocks first
-        if (data['candidates'] == null && data['promptFeedback']?['blockReason'] != null) {
-          print('Gemini blocked the request: ${data['promptFeedback']['blockReason']}');
-          throw Exception("Request blocked due to safety settings. Please rephrase your activity.");
+        if (data['candidates'] == null &&
+            data['promptFeedback']?['blockReason'] != null) {
+          print(
+              'Gemini blocked the request: ${data['promptFeedback']['blockReason']}');
+          throw Exception(
+              "Request blocked due to safety settings. Please rephrase your activity.");
         }
 
         // Extract the text content which should be JSON
-        final content = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        final content =
+        data['candidates']?[0]?['content']?['parts']?[0]?['text'];
 
         if (content != null) {
-          final parsed = _parseCalorieBurnResponse(content); // Use a dedicated parser
+          final parsed = _parseCalorieBurnResponse(
+              content); // Use a dedicated parser
           if (parsed != null) {
             print('Parsed Gemini Result: $parsed');
             return parsed; // Success!
           } else {
             // Parsing failed even though content existed
             print('Failed to parse Gemini JSON response.');
-            throw Exception("Received an unexpected format from the AI. Please try again.");
+            throw Exception(
+                "Received an unexpected format from the AI. Please try again.");
           }
         } else {
           // No content found in the response
@@ -947,30 +882,39 @@ Output the results strictly in the JSON format you were trained on, with these e
           final finishReason = data['candidates']?[0]?['finishReason'];
           if (finishReason != null && finishReason != 'STOP') {
             print('Gemini Finish Reason: $finishReason');
-            throw Exception("AI generation stopped unexpectedly ($finishReason). Please try again.");
+            throw Exception(
+                "AI generation stopped unexpectedly ($finishReason). Please try again.");
           }
-          throw Exception("The AI model did not return a valid estimation. Please try again or rephrase your activity.");
+          throw Exception(
+              "The AI model did not return a valid estimation. Please try again or rephrase your activity.");
         }
       } else {
         // Handle HTTP errors
         print('Gemini API HTTP Error: ${response.statusCode}');
         // Try to parse error message if available
-        String errorMessage = 'Failed to connect to the AI service (Code: ${response.statusCode}).';
+        String errorMessage =
+            'Failed to connect to the AI service (Code: ${response
+            .statusCode}).';
         try {
           final errorData = jsonDecode(response.body);
           errorMessage = errorData['error']?['message'] ?? errorMessage;
-        } catch (_) { /* Ignore parsing error */ }
+        } catch (_) {
+          /* Ignore parsing error */
+        }
         throw Exception(errorMessage);
       }
     } catch (e) {
       print('GeminiService calculateCaloriesBurned Error: $e');
       // Re-throw the specific error message for better feedback in UI
-      throw Exception("Calculation failed: ${e.toString().replaceFirst("Exception: ", "")}");
+      throw Exception(
+          "Calculation failed: ${e.toString().replaceFirst(
+              "Exception: ", "")}");
     }
   }
 
   // Helper to create the specific prompt
-  static String _createCalorieBurnPrompt(String activityDescWithDuration, double weightKg) {
+  static String _createCalorieBurnPrompt(String activityDescWithDuration,
+      double weightKg) {
     // THIS IS THE EXACT PROMPT FROM YOUR WEB BACKEND CODE
     return '''
 You are a fitness and exercise science expert. Your task is to estimate the calories burned for a given activity.
@@ -996,7 +940,6 @@ Return ONLY a valid JSON object with the following structure:
 ''';
   }
 
-
   // Helper to parse the JSON response for calorie burn
   static Map<String, dynamic>? _parseCalorieBurnResponse(String content) {
     try {
@@ -1016,9 +959,9 @@ Return ONLY a valid JSON object with the following structure:
           decoded['estimatedCaloriesBurned'] is num &&
           decoded.containsKey('explanation') &&
           decoded['explanation'] is String) {
-
         // Convert to double explicitly for consistency
-        decoded['estimatedCaloriesBurned'] = (decoded['estimatedCaloriesBurned'] as num).toDouble();
+        decoded['estimatedCaloriesBurned'] =
+            (decoded['estimatedCaloriesBurned'] as num).toDouble();
 
         return decoded;
       } else {
@@ -1031,6 +974,8 @@ Return ONLY a valid JSON object with the following structure:
       return null; // JSON parsing failed
     }
   }
+
+  // UPDATED: Removed fallback logic and set temperature to 0.1
   static Future<List<String>> generateExercisePreparationTips({
     required String exerciseName,
     required String context,
@@ -1058,7 +1003,7 @@ Return ONLY a valid JSON object with the following structure:
             }
           ],
           'generationConfig': {
-            'temperature': 0.3, // Low temperature for factual tips
+            'temperature': 0.1, // UPDATED: Set temperature to 0.1
             'maxOutputTokens': 512,
             'responseMimeType': 'application/json',
           },
@@ -1074,7 +1019,8 @@ Return ONLY a valid JSON object with the following structure:
               "Request blocked due to safety settings. Please try again.");
         }
 
-        final content = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        final content =
+        data['candidates']?[0]?['content']?['parts']?[0]?['text'];
 
         if (content != null) {
           final parsed = _parsePreparationTipsResponse(content);
@@ -1085,26 +1031,27 @@ Return ONLY a valid JSON object with the following structure:
                 "AI returned tips in an unexpected format. Please try again.");
           }
         }
+        // CORRECTED: Throw exception if no content
+        throw Exception("No content received from AI.");
       } else {
         String errorMessage =
-            'Failed to connect to the AI service (Code: ${response.statusCode}).';
+            'Failed to connect to the AI service (Code: ${response
+            .statusCode}).';
         try {
           final errorData = jsonDecode(response.body);
           errorMessage = errorData['error']?['message'] ?? errorMessage;
-        } catch (_) { /* Ignore parsing error */ }
+        } catch (_) {
+          /* Ignore parsing error */
+        }
         throw Exception(errorMessage);
       }
     } catch (e) {
-      // Return a basic fallback if API fails
+      // CORRECTED: Re-throw exception instead of returning a fallback
       print('Exercise tips generation failed: $e');
-      return [
-        'Ensure you have the correct equipment and space clear of obstructions.',
-        'Perform a few light warm-up repetitions before starting your working sets.',
-        'Focus on a smooth, controlled setup before initiating the movement.',
-      ];
+      throw Exception(
+          "Failed to generate tips: ${e.toString().replaceFirst(
+              "Exception: ", "")}");
     }
-    // Return empty list on failure
-    return [];
   }
 
   /// Helper method to create the preparation tips prompt.
@@ -1146,7 +1093,8 @@ Do not include markdown backticks (```json) or any text outside the JSON object.
         // Ensure the list is List<String>
         return List<String>.from(decoded['preparationTips']);
       } else {
-        print("Parsed JSON missing required 'preparationTips' key or is not a list.");
+        print(
+            "Parsed JSON missing required 'preparationTips' key or is not a list.");
         return null;
       }
     } catch (e) {
@@ -1154,6 +1102,8 @@ Do not include markdown backticks (```json) or any text outside the JSON object.
       return null;
     }
   }
+
+  // UPDATED: Set temperature to 0.1
   static Future<Map<String, dynamic>> generateRecipe({
     required Map<String, dynamic> userInput,
   }) async {
@@ -1165,7 +1115,8 @@ Do not include markdown backticks (```json) or any text outside the JSON object.
       final prompt = _createRecipePrompt(userInput);
 
       final response = await http.post(
-        Uri.parse('$_baseUrl/models/gemini-2.0-flash:generateContent?key=$_apiKey'),
+        Uri.parse(
+            '$_baseUrl/models/gemini-2.0-flash:generateContent?key=$_apiKey'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'contents': [
@@ -1176,8 +1127,9 @@ Do not include markdown backticks (```json) or any text outside the JSON object.
             }
           ],
           'generationConfig': {
-            'temperature': 0.7,
+            'temperature': 0.1, // UPDATED: Set temperature to 0.1
             'maxOutputTokens': 2048,
+            'responseMimeType': 'application/json', // Request JSON
           },
         }),
       );
@@ -1185,25 +1137,32 @@ Do not include markdown backticks (```json) or any text outside the JSON object.
       if (response.statusCode == 200 && response.body.isNotEmpty) {
         final data = jsonDecode(response.body);
 
-        if (data['candidates'] == null && data['promptFeedback']?['blockReason'] != null) {
+        if (data['candidates'] == null &&
+            data['promptFeedback']?['blockReason'] != null) {
           throw Exception("Request blocked due to safety settings.");
         }
 
-        final content = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        final content =
+        data['candidates']?[0]?['content']?['parts']?[0]?['text'];
 
         if (content != null) {
+          // UPDATED: _parseRecipeResponse now throws on failure
           return _parseRecipeResponse(content, userInput);
         } else {
           throw Exception("No content received from AI.");
         }
       } else {
-        throw Exception('Failed to connect to AI service: ${response.statusCode}');
+        throw Exception(
+            'Failed to connect to AI service: ${response.statusCode}');
       }
     } catch (e) {
-      throw Exception('Recipe generation failed: ${e.toString()}');
+      throw Exception(
+          'Recipe generation failed: ${e.toString().replaceFirst(
+              "Exception: ", "")}');
     }
   }
 
+// --- FIX 1: Clarified the prompt schema ---
   static String _createRecipePrompt(Map<String, dynamic> userInput) {
     final ingredients = userInput['ingredients'];
     final cuisine = userInput['cuisine'];
@@ -1230,41 +1189,67 @@ Please provide a complete recipe with:
 
 Format the response as a JSON object with the following structure:
 {
-  "name": "Recipe Name",
-  "description": "Brief description",
-  "prepTime": "X minutes",
-  "cookTime": "Y minutes", 
-  "totalTime": "Z minutes",
-  "servings": number,
-  "difficulty": "Easy/Medium/Hard",
-  "cuisine": "$cuisine",
-  "mealType": "$mealType",
-  "ingredients": ["ingredient 1 with quantity", "ingredient 2 with quantity"],
-  "instructions": ["step 1", "step 2", "step 3"],
+  "name": "[string]",
+  "description": "[string]",
+  "prepTime": "[string]", 
+  "cookTime": "[string]", 
+  "totalTime": "[string]",
+  "servings": "[number]",
+  "difficulty": "[string]",
+  "cuisine": "[string]",
+  "mealType": "[string]",
+  "ingredients": ["[string with quantity]", "[string with quantity]"],
+  "instructions": ["[step 1]", "[step 2]"],
   "nutritionalInfo": {
-    "calories": "X kcal per serving",
-    "protein": "Xg",
-    "carbs": "Xg", 
-    "fat": "Xg"
+    "calories": "[string with units]",
+    "protein": "[string with units]",
+    "carbs": "[string with units]", 
+    "fat": "[string with units]"
   },
-  "tips": ["tip 1", "tip 2"]
+  "tips": ["[string tip 1]", "[string tip 2]"]
 }
 
 Make the recipe creative, practical, and suitable for the specified cuisine and meal type.
+CRITICAL: You MUST respond with ONLY a valid JSON object.
 ''';
   }
-
-  static Map<String, dynamic> _parseRecipeResponse(String content, Map<String, dynamic> userInput) {
+// --- FIX: This function now safely converts lists ---
+  static Map<String, dynamic> _parseRecipeResponse(
+      String content, Map<String, dynamic> userInput) {
     try {
       String cleanContent = content.trim();
-      if (cleanContent.startsWith('```json')) {
-        cleanContent = cleanContent.substring(7);
-      }
-      if (cleanContent.endsWith('```')) {
-        cleanContent = cleanContent.substring(0, cleanContent.length - 3);
+
+      // Find the first '{' and the last '}' to extract the JSON object
+      final int startIndex = cleanContent.indexOf('{');
+      final int endIndex = cleanContent.lastIndexOf('}');
+
+      if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+        cleanContent = cleanContent.substring(startIndex, endIndex + 1);
+      } else {
+        // If no '{' or '}' is found, the content is definitely not JSON
+        throw Exception("No valid JSON object found in the AI response.");
       }
 
       final Map<String, dynamic> recipe = jsonDecode(cleanContent);
+
+      // --- NEW LINES ---
+      // Safely convert the dynamic lists to List<String>
+      // This prevents the 'List<dynamic>' error in the UI
+      if (recipe['ingredients'] is List) {
+        recipe['ingredients'] = (recipe['ingredients'] as List)
+            .map((item) => item.toString())
+            .toList();
+      }
+      if (recipe['instructions'] is List) {
+        recipe['instructions'] = (recipe['instructions'] as List)
+            .map((item) => item.toString())
+            .toList();
+      }
+      if (recipe['tips'] is List) {
+        recipe['tips'] =
+            (recipe['tips'] as List).map((item) => item.toString()).toList();
+      }
+      // --- END OF NEW LINES ---
 
       // Add metadata
       recipe['generatedOn'] = DateTime.now().toString().split(' ')[0];
@@ -1272,51 +1257,10 @@ Make the recipe creative, practical, and suitable for the specified cuisine and 
 
       return recipe;
     } catch (e) {
-      // Fallback: Create a basic recipe if parsing fails
-      return _createFallbackRecipe(userInput);
+      // CORRECTED: Throw exception instead of returning fallback
+      print('Error parsing AI recipe: $e');
+      print('Raw content: $content');
+      throw Exception('Failed to parse AI recipe response. Please try again.');
     }
   }
-
-  static Map<String, dynamic> _createFallbackRecipe(Map<String, dynamic> userInput) {
-    final ingredients = userInput['ingredients'].toString().split(',').take(3).join(', ');
-
-    return {
-      'name': 'Custom ${userInput['cuisine']} ${userInput['mealType']}',
-      'description': 'A delicious recipe created with $ingredients',
-      'prepTime': '15 minutes',
-      'cookTime': '25 minutes',
-      'totalTime': '40 minutes',
-      'servings': 2,
-      'difficulty': 'Medium',
-      'cuisine': userInput['cuisine'],
-      'mealType': userInput['mealType'],
-      'ingredients': [
-        '${userInput['ingredients']} (as needed)',
-        '2 tbsp olive oil',
-        'Salt and pepper to taste',
-        '1 tsp herbs and spices'
-      ],
-      'instructions': [
-        'Prepare all ingredients by washing and chopping as needed.',
-        'Heat oil in a pan over medium heat.',
-        'Cook the main ingredients until tender.',
-        'Season with salt, pepper, and spices.',
-        'Serve hot and enjoy your homemade meal!'
-      ],
-      'nutritionalInfo': {
-        'calories': '350-450 kcal per serving',
-        'protein': '15-25g',
-        'carbs': '30-40g',
-        'fat': '10-15g'
-      },
-      'tips': [
-        'Adjust seasoning according to your taste',
-        'Use fresh ingredients for best flavor',
-        'Prep all ingredients before starting to cook'
-      ],
-      'generatedOn': DateTime.now().toString().split(' ')[0],
-      'userInput': userInput
-    };
-  }
 }
-

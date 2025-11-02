@@ -155,7 +155,7 @@ You MUST respond with ONLY a valid JSON object in this EXACT format:
         },
       ],
       'generationConfig': {
-        'temperature': 0.0, // 0.0 for factual, reproducible results
+        'temperature': 0.1, // 0.0 for factual, reproducible results
         'topK': 40,
         'topP': 0.95,
         'maxOutputTokens': 8192,
@@ -197,7 +197,7 @@ You MUST respond with ONLY a valid JSON object in this EXACT format:
         },
       ],
       'generationConfig': {
-        'temperature': 0.0,
+        'temperature': 0.1,
         'topK': 40,
         'topP': 0.95,
         'maxOutputTokens': 8192,
