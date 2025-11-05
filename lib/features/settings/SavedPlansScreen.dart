@@ -65,7 +65,9 @@ class _SavedPlansScreenState extends State<SavedPlansScreen> {
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -156,7 +158,7 @@ class _SavedPlansScreenState extends State<SavedPlansScreen> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 16),
+      // Removed bottom margin to be handled by the ListView
       decoration: BoxDecoration(
         color: AppColors.cardBackground(isDark),
         borderRadius: BorderRadius.circular(16),
@@ -203,7 +205,7 @@ class _SavedPlansScreenState extends State<SavedPlansScreen> {
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
               title: Text(tip.toString(), style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 15)),
-            )).toList(), // Added .toList() here just for general safety with spread
+            )).toList(),
           ],
         ],
       ),
@@ -222,80 +224,80 @@ class _SavedPlansScreenState extends State<SavedPlansScreen> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 16),
+      // Removed bottom margin to be handled by the ListView
       decoration: BoxDecoration(
         color: AppColors.cardBackground(isDark),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.borderColor(isDark)),
       ),
       child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-      Row(
-      children: [
-      Icon(Icons.restaurant, size: 24, color: AppColors.black),
-      const SizedBox(width: 8),
-      Expanded(
-        child: Text(
-          plan['planTitle'] ?? 'Saved Meal Plan',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark)),
-        ),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.restaurant, size: 24, color: AppColors.black),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  plan['planTitle'] ?? 'Saved Meal Plan',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            plan['introduction'] ?? 'A ${summary?['totalDays'] ?? 'N/A'} day meal plan.',
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary(isDark)),
+          ),
+          const SizedBox(height: 24),
+          // Plan Details
+          Text('Plan Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark))),
+          const SizedBox(height: 12),
+          if (summary != null) ...[
+            _buildDetailRow('Diet Type', summary['dietType'] ?? 'N/A', isDark),
+            _buildDetailRow('Duration', '${summary['totalDays'] ?? 'N/A'} Days', isDark),
+            _buildDetailRow('Avg. Calories', '${summary['avgDailyCalories'] ?? 'N/A'} kcal', isDark),
+          ],
+          const SizedBox(height: 24),
+          // Daily Meals
+          Text('Daily Meal Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark))),
+          const SizedBox(height: 12),
+
+          // --- CORRECTED SORTING LOGIC (One single, clean block) ---
+          if (dailyPlans.isNotEmpty)
+            ...() {
+              final sortedDailyPlans = dailyPlans.toList()
+                ..sort((a, b) {
+                  final aNum = int.tryParse(a.key.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                  final bNum = int.tryParse(b.key.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                  return aNum.compareTo(bNum);
+                });
+
+              return sortedDailyPlans.map((entry) {
+                final dayName = entry.key;
+                final dayMeals = entry.value as Map<String, dynamic>;
+                final totalCalories = dayMeals['totalCalories'] as int? ?? 0;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: _buildMealDayExpansionTile(isDark, dayName, dayMeals, totalCalories),
+                );
+              }).toList();
+            }(), // Self-executing function ends here
+
+
+
+          if (groceryList != null && groceryList.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            TextButton.icon(
+              // Passed the correctly typed List<String>
+              onPressed: () => _showGroceryListDialog(context, isDark, groceryList),
+              icon: Icon(Icons.shopping_cart, size: 20, color: AppColors.textPrimary(isDark)),
+              label: Text('View Grocery List', style: TextStyle(color: AppColors.textPrimary(isDark), fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ],
       ),
-      ],
-    ),
-    const SizedBox(height: 8),
-    Text(
-    plan['introduction'] ?? 'A ${summary?['totalDays'] ?? 'N/A'} day meal plan.',
-    style: TextStyle(fontSize: 14, color: AppColors.textSecondary(isDark)),
-    ),
-    const SizedBox(height: 24),
-    // Plan Details
-    Text('Plan Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark))),
-    const SizedBox(height: 12),
-    if (summary != null) ...[
-    _buildDetailRow('Diet Type', summary['dietType'] ?? 'N/A', isDark),
-    _buildDetailRow('Duration', '${summary['totalDays'] ?? 'N/A'} Days', isDark),
-    _buildDetailRow('Avg. Calories', '${summary['avgDailyCalories'] ?? 'N/A'} kcal', isDark),
-    ],
-    const SizedBox(height: 24),
-    // Daily Meals
-    Text('Daily Meal Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark))),
-    const SizedBox(height: 12),
-
-    // --- CORRECTED SORTING LOGIC (One single, clean block) ---
-    if (dailyPlans.isNotEmpty)
-    ...() {
-    final sortedDailyPlans = dailyPlans.toList()
-    ..sort((a, b) {
-    final aNum = int.tryParse(a.key.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-    final bNum = int.tryParse(b.key.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-    return aNum.compareTo(bNum);
-    });
-
-    return sortedDailyPlans.map((entry) {
-    final dayName = entry.key;
-    final dayMeals = entry.value as Map<String, dynamic>;
-    final totalCalories = dayMeals['totalCalories'] as int? ?? 0;
-    return Padding(
-    padding: const EdgeInsets.only(bottom: 8.0),
-    child: _buildMealDayExpansionTile(isDark, dayName, dayMeals, totalCalories),
-    );
-    }).toList();
-    }(), // Self-executing function ends here
-
-
-
-    if (groceryList != null && groceryList.isNotEmpty) ...[
-    const SizedBox(height: 24),
-    TextButton.icon(
-    // Passed the correctly typed List<String>
-    onPressed: () => _showGroceryListDialog(context, isDark, groceryList),
-    icon: Icon(Icons.shopping_cart, size: 20, color: AppColors.textPrimary(isDark)),
-    label: Text('View Grocery List', style: TextStyle(color: AppColors.textPrimary(isDark), fontWeight: FontWeight.w600)),
-    ),
-    ],
-    ],
-    ),
     );
   }
 
@@ -398,7 +400,7 @@ class _SavedPlansScreenState extends State<SavedPlansScreen> {
     );
   }
 
-  /// --- BUILD METHOD ---
+  /// --- BUILD METHOD (Refactored for Tabs) ---
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -406,81 +408,109 @@ class _SavedPlansScreenState extends State<SavedPlansScreen> {
 
     final workoutPlans = _savedPlansList.where((p) => p['planType'] == 'workout').toList();
     final mealPlans = _savedPlansList.where((p) => p['planType'] == 'meal').toList();
-    final noPlansSaved = workoutPlans.isEmpty && mealPlans.isEmpty;
 
-    return Scaffold(
-      backgroundColor: AppColors.background(isDark),
-      appBar: AppBar(
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
         backgroundColor: AppColors.background(isDark),
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary(isDark)),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text('Saved AI Plans',
-            style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 20, fontWeight: FontWeight.bold)),
-        centerTitle: true,
-      ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator(color: AppColors.black))
-          : SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (noPlansSaved)
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(lucide.LucideIcons.save, size: 60, color: AppColors.textDisabled(isDark)),
-                    const SizedBox(height: 16),
-                    Text('No AI Plans Saved',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textSecondary(isDark))),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Generate a workout or meal plan and save it to view it here.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textDisabled(isDark), fontSize: 14),
-                    ),
-                  ],
-                ),
-              )
-            else ...[
-              Text('AI Workout Plans',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary(isDark))),
-              const SizedBox(height: 16),
-              if (workoutPlans.isNotEmpty)
-                ...workoutPlans.map((plan) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: _buildWorkoutPlanDisplay(isDark, plan),
-                )).toList()
-              else
-                _buildEmptyCategoryMessage('No workout plans saved yet.', isDark),
-              const SizedBox(height: 32),
-              Text('AI Meal Plans',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.textPrimary(isDark))),
-              const SizedBox(height: 16),
-              if (mealPlans.isNotEmpty)
-                ...mealPlans.map((plan) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: _buildMealPlanDisplay(isDark, plan),
-                )).toList()
-              else
-                _buildEmptyCategoryMessage('No meal plans saved yet.', isDark),
-              const SizedBox(height: 50),
+        appBar: AppBar(
+          backgroundColor: AppColors.background(isDark),
+          elevation: 0,
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back, color: AppColors.textPrimary(isDark)),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: Text('Saved AI Plans',
+              style: TextStyle(color: AppColors.textPrimary(isDark), fontSize: 20, fontWeight: FontWeight.bold)),
+          centerTitle: true,
+          bottom: TabBar(
+            indicatorColor: AppColors.black,
+            labelColor: AppColors.textPrimary(isDark),
+            unselectedLabelColor: AppColors.textDisabled(isDark),
+            labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            unselectedLabelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            tabs: const [
+              Tab(text: 'Workouts'),
+              Tab(text: 'Meal Plans'),
             ],
+          ),
+        ),
+        body: _isLoading
+            ? Center(child: CircularProgressIndicator(color: AppColors.black))
+            : TabBarView(
+          children: [
+            _buildWorkoutTab(context, isDark, workoutPlans),
+            _buildMealTab(context, isDark, mealPlans),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEmptyCategoryMessage(String message, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Text(message,
-          style: TextStyle(fontSize: 14, fontStyle: FontStyle.italic, color: AppColors.textDisabled(isDark))),
+  /// --- NEW TAB BUILDER WIDGETS ---
+
+  Widget _buildWorkoutTab(BuildContext context, bool isDark, List<Map<String, dynamic>> plans) {
+    if (plans.isEmpty) {
+      return _buildEmptyTabMessage(
+        'No Workout Plans Saved',
+        'Generate a new workout plan and save it to view it here.',
+        isDark,
+        lucide.LucideIcons.dumbbell,
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      itemCount: plans.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        return _buildWorkoutPlanDisplay(isDark, plans[index]);
+      },
+    );
+  }
+
+  Widget _buildMealTab(BuildContext context, bool isDark, List<Map<String, dynamic>> plans) {
+    if (plans.isEmpty) {
+      return _buildEmptyTabMessage(
+        'No Meal Plans Saved',
+        'Generate a new meal plan and save it to view it here.',
+        isDark,
+        Icons.restaurant,
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      itemCount: plans.length,
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
+      itemBuilder: (context, index) {
+        return _buildMealPlanDisplay(isDark, plans[index]);
+      },
+    );
+  }
+
+  /// --- REVISED EMPTY MESSAGE WIDGET (Replaces _buildEmptyCategoryMessage) ---
+
+  Widget _buildEmptyTabMessage(String title, String subtitle, bool isDark, IconData icon) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 60, color: AppColors.textDisabled(isDark)),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textSecondary(isDark)),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textDisabled(isDark), fontSize: 14),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

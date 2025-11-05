@@ -96,7 +96,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         automaticallyImplyLeading: false,
         title: Row(
           children: [
-            Icon(Icons.track_changes, color: Color(0xFFE91E63)), // Pink icon
+            // --- MODIFIED: Replaced Icon with Image.asset ---
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6.0), // Optional: adds rounded corners
+              child: Image.asset(
+                'assets/images/os.jpg',
+                width: 28, // You can adjust the size
+                height: 28,
+                fit: BoxFit.cover,
+              ),
+            ),
             const SizedBox(width: 10),
             const Text(
               'CycleOS  Health Assistant',

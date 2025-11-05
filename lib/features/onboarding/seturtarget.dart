@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:trackai/core/constants/appcolors.dart';
 import 'package:trackai/features/onboarding/service/observices.dart';
+import 'dart:math'; // Import for ceiling function
 
 class SetYourTargetPage extends StatefulWidget {
   final VoidCallback onNext;
@@ -24,27 +25,48 @@ class SetYourTargetPage extends StatefulWidget {
 
 class _SetYourTargetPageState extends State<SetYourTargetPage> {
   final TextEditingController _amountController = TextEditingController();
-  final TextEditingController _timeframeController = TextEditingController();
+  final FocusNode _amountFocusNode = FocusNode();
 
   String selectedUnit = 'kg';
   bool _isNextEnabled = false;
   bool _isLoading = false;
+  bool _isAmountFocused = false;
+
+  // New state variables
+  bool _showPaceOptions = false;
+  double _enteredAmount = 0.0;
+  double? _selectedPaceValue; // e.g., 0.5, 1.0, 1.5
+  int? _calculatedTimeframe; // e.g., 50, 25, 17
 
   @override
   void initState() {
     super.initState();
     selectedUnit = widget.isMetric ? 'kg' : 'lbs';
-    _amountController.addListener(_validateInputs);
-    _timeframeController.addListener(_validateInputs);
+    _amountController.addListener(_onAmountChanged);
+    _amountFocusNode.addListener(() {
+      setState(() {
+        _isAmountFocused = _amountFocusNode.hasFocus;
+      });
+    });
   }
 
-  void _validateInputs() {
+  void _onAmountChanged() {
+    final amount = double.tryParse(_amountController.text);
     setState(() {
-      _isNextEnabled =
-          _amountController.text.isNotEmpty &&
-              _timeframeController.text.isNotEmpty &&
-              double.tryParse(_amountController.text) != null &&
-              int.tryParse(_timeframeController.text) != null;
+      if (amount != null && amount > 0) {
+        _enteredAmount = amount;
+        _showPaceOptions = true;
+        // If amount changes, reset pace selection
+        _selectedPaceValue = null;
+        _calculatedTimeframe = null;
+      } else {
+        _enteredAmount = 0.0;
+        _showPaceOptions = false;
+        _selectedPaceValue = null;
+        _calculatedTimeframe = null;
+      }
+      // Validate next button
+      _isNextEnabled = _showPaceOptions && _selectedPaceValue != null;
     });
   }
 
@@ -67,11 +89,21 @@ class _SetYourTargetPageState extends State<SetYourTargetPage> {
           amountKg = amount / 2.20462;
         }
 
+        // Calculate target pace in KG for backend consistency
+        double targetPaceKg;
+        if (selectedUnit == 'kg') {
+          targetPaceKg = _selectedPaceValue!;
+        } else {
+          // Convert lbs/week to kg/week
+          targetPaceKg = _selectedPaceValue! / 2.20462;
+        }
+
         final targetData = {
           'targetAmountKg': amountKg,
           'targetAmountLbs': amountLbs,
           'targetUnit': selectedUnit,
-          'targetTimeframe': int.parse(_timeframeController.text),
+          'targetTimeframe': _calculatedTimeframe, // Use the calculated value
+          'targetPaceKg': targetPaceKg,
         };
 
         // Save target data to Firebase
@@ -106,8 +138,9 @@ class _SetYourTargetPageState extends State<SetYourTargetPage> {
 
   @override
   void dispose() {
+    _amountController.removeListener(_onAmountChanged);
     _amountController.dispose();
-    _timeframeController.dispose();
+    _amountFocusNode.dispose();
     super.dispose();
   }
 
@@ -183,13 +216,18 @@ class _SetYourTargetPageState extends State<SetYourTargetPage> {
                                     color: Colors.grey[100],
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: Colors.transparent,
-                                      width: 1,
+                                      color: _isAmountFocused
+                                          ? AppColors.primary(false) // <--- FIX: Call the function
+                                          : Colors.transparent,
+                                      width: 2,
                                     ),
                                   ),
                                   child: TextField(
                                     controller: _amountController,
-                                    keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                    focusNode: _amountFocusNode,
+                                    keyboardType:
+                                    TextInputType.numberWithOptions(
+                                        decimal: true),
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       fontSize: 16,
@@ -197,6 +235,11 @@ class _SetYourTargetPageState extends State<SetYourTargetPage> {
                                       color: Colors.black,
                                     ),
                                     decoration: const InputDecoration(
+                                      hintText: 'E.g., 5',
+                                      hintStyle: TextStyle(
+                                        color: Colors.grey,
+                                        fontWeight: FontWeight.w400,
+                                      ),
                                       border: InputBorder.none,
                                       contentPadding: EdgeInsets.symmetric(
                                         vertical: 18,
@@ -221,7 +264,8 @@ class _SetYourTargetPageState extends State<SetYourTargetPage> {
                                     child: DropdownButton<String>(
                                       value: selectedUnit,
                                       isExpanded: true,
-                                      icon: Icon(Icons.keyboard_arrow_down, color: Colors.black),
+                                      icon: Icon(Icons.keyboard_arrow_down,
+                                          color: Colors.black),
                                       style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
@@ -229,8 +273,10 @@ class _SetYourTargetPageState extends State<SetYourTargetPage> {
                                       ),
                                       dropdownColor: Colors.white,
                                       borderRadius: BorderRadius.circular(12),
-                                      padding: EdgeInsets.symmetric(horizontal: 16),
-                                      items: ['kg', 'lbs'].map((String value) {
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 16),
+                                      items:
+                                      ['kg', 'lbs'].map((String value) {
                                         return DropdownMenuItem<String>(
                                           value: value,
                                           child: Text(
@@ -247,6 +293,8 @@ class _SetYourTargetPageState extends State<SetYourTargetPage> {
                                         if (newValue != null) {
                                           setState(() {
                                             selectedUnit = newValue;
+                                            // Trigger re-calculation if amount is already entered
+                                            _onAmountChanged();
                                           });
                                         }
                                       },
@@ -256,52 +304,19 @@ class _SetYourTargetPageState extends State<SetYourTargetPage> {
                               ),
                             ],
                           ),
-                        ],
-                      ),
-
-                      SizedBox(height: screenHeight * 0.04),
-
-                      // Timeframe
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Timeframe (in weeks)',
+                          const SizedBox(height: 8),
+                          Text(
+                            'Enter a positive number for the amount to ${widget.goal == 'gain_weight' ? 'gain' : 'lose'}.',
                             style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.transparent,
-                                width: 1,
-                              ),
-                            ),
-                            child: TextField(
-                              controller: _timeframeController,
-                              keyboardType: TextInputType.number,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black,
-                              ),
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(
-                                  vertical: 18,
-                                ),
-                              ),
+                              fontSize: 12,
+                              color: Colors.grey[600],
                             ),
                           ),
                         ],
                       ),
+
+                      // --- NEW: "Choose Your Pace" Section ---
+                      if (_showPaceOptions) _buildPaceSelector(),
                     ],
                   ),
                 ),
@@ -379,6 +394,134 @@ class _SetYourTargetPageState extends State<SetYourTargetPage> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // --- NEW: Widget Builder for Pace Options ---
+  Widget _buildPaceSelector() {
+    final bool isKg = selectedUnit == 'kg';
+    final String unitLabel = isKg ? 'kg' : 'lbs';
+    final String goalLabel = widget.goal == 'gain_weight' ? 'gain' : 'lose';
+
+    // Define paces based on selected unit
+    // KG: 0.5 (Recommended), 1.0 (Fast), 1.5 (Ambitious)
+    // LBS: 1.0 (Recommended), 2.0 (Fast), 3.0 (Ambitious)
+    final double paceValue1 = isKg ? 0.5 : 1.0;
+    final double paceValue2 = isKg ? 1.0 : 2.0;
+    final double paceValue3 = isKg ? 1.5 : 3.0;
+
+    // Calculate estimated timeframes (and round up)
+    final int timePace1 = (_enteredAmount / paceValue1).ceil();
+    final int timePace2 = (_enteredAmount / paceValue2).ceil();
+    final int timePace3 = (_enteredAmount / paceValue3).ceil();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.04),
+        const Text(
+          'Choose Your Pace',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildPaceOptionCard(
+          pace: paceValue1,
+          unit: unitLabel,
+          timeframe: timePace1,
+          label: 'Recommended',
+          paceValue: paceValue1,
+          goalLabel: goalLabel,
+        ),
+        const SizedBox(height: 12),
+        _buildPaceOptionCard(
+          pace: paceValue2,
+          unit: unitLabel,
+          timeframe: timePace2,
+          label: 'Fast',
+          paceValue: paceValue2,
+          goalLabel: goalLabel,
+        ),
+        const SizedBox(height: 12),
+        _buildPaceOptionCard(
+          pace: paceValue3,
+          unit: unitLabel,
+          timeframe: timePace3,
+          label: 'Ambitious',
+          paceValue: paceValue3,
+          goalLabel: goalLabel,
+        ),
+      ],
+    );
+  }
+
+  // --- NEW: Helper widget for the pace card ---
+  Widget _buildPaceOptionCard({
+    required double pace,
+    required String unit,
+    required int timeframe,
+    required String label,
+    required double paceValue,
+    required String goalLabel,
+  }) {
+    final bool isSelected = _selectedPaceValue == paceValue;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedPaceValue = paceValue;
+          _calculatedTimeframe = timeframe;
+          _isNextEnabled = true; // Since this can only be tapped if options are shown
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.black : Colors.grey[100],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.black : Colors.grey[200]!,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$pace $unit / week',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: isSelected ? Colors.white : Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isSelected ? Colors.grey[400] : Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+            Text(
+              'Est. $timeframe weeks',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : Colors.black,
+              ),
+            ),
+          ],
         ),
       ),
     );

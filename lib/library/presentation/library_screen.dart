@@ -128,7 +128,7 @@ class LibraryScreen extends StatelessWidget {
                     context,
                     'CycleOS',
                     'Track your menstrual cycle and health insights.',
-                    Icons.favorite_outline,
+                    null, // <-- Icon set to null
                     primaryTextColor,
                     isDarkTheme,
                     cardBackgroundColor,
@@ -138,6 +138,7 @@ class LibraryScreen extends StatelessWidget {
                     iconContainerColor,
                     screenWidth,
                     screenHeight,
+                    imageAsset: 'assets/images/os.jpg', // <-- Image asset added
                     isNew: true,
                     isFullWidth: true,
                     onTap: () {
@@ -157,12 +158,11 @@ class LibraryScreen extends StatelessWidget {
       },
     );
   }
-
   Widget _buildLibraryCard(
       BuildContext context,
       String title,
       String description,
-      IconData icon,
+      IconData? icon, // <-- Made nullable
       Color iconColor,
       bool isDarkTheme,
       Color cardBackgroundColor,
@@ -175,8 +175,12 @@ class LibraryScreen extends StatelessWidget {
         bool isFullWidth = false,
         bool isBeta = false,
         bool isNew = false,
+        String? imageAsset, // <-- Added imageAsset parameter
         required VoidCallback onTap,
       }) {
+    // Assertion to ensure one of icon or imageAsset is provided
+    assert(icon != null || imageAsset != null, 'Must provide either an icon or an imageAsset');
+
     final Color badgeBgColor = isDarkTheme ? Colors.white : Colors.black;
     final Color badgeTextColor = isDarkTheme ? Colors.black : Colors.white;
     final Color betaBadgeBgColor = isDarkTheme ? Colors.grey[800]! : Colors.grey[300]!;
@@ -189,7 +193,7 @@ class LibraryScreen extends StatelessWidget {
     final Decoration finalNewBadgeDecoration;
 
     if (isNew) {
-      finalIconColor = Colors.white;
+      finalIconColor = Colors.white; // This will be used for Icon OR Image tint
       finalIconContainerDecoration = BoxDecoration(
         gradient: LinearGradient(
           colors: [Colors.pink, Colors.pink.shade400],
@@ -197,10 +201,13 @@ class LibraryScreen extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.pink.withOpacity(0.2),
+        // --- MODIFIED: Remove border for imageAsset when isNew ---
+        // Only apply border if it's an icon OR if it's not an imageAsset
+        border: (imageAsset != null && isNew) ? null : Border.all(
+          color: Colors.pink.withOpacity(0.2), // This border will still exist for NEW icons
           width: 1,
         ),
+        // --- END MODIFICATION ---
         boxShadow: [
           BoxShadow(
             color: Colors.pink.withOpacity(0.3),
@@ -221,7 +228,7 @@ class LibraryScreen extends StatelessWidget {
         ],
       );
     } else {
-      finalIconColor = iconColor;
+      finalIconColor = iconColor; // This will be used for Icon OR Image tint
       finalIconContainerDecoration = BoxDecoration(
         color: iconContainerColor,
         borderRadius: BorderRadius.circular(12),
@@ -271,10 +278,18 @@ class LibraryScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: EdgeInsets.all(screenWidth * 0.03),
+                  padding: imageAsset != null ? EdgeInsets.zero : EdgeInsets.all(screenWidth * 0.03),
                   decoration: finalIconContainerDecoration,
-                  child: Icon(
-                    icon,
+                  clipBehavior: imageAsset != null ? Clip.antiAlias : Clip.none,
+                  child: imageAsset != null
+                      ? Image.asset(
+                    imageAsset,
+                    width: screenWidth * 0.12,
+                    height: screenWidth * 0.12,
+                    fit: BoxFit.cover,
+                  )
+                      : Icon(
+                    icon!, // We know from assertion this is safe
                     color: finalIconColor,
                     size: screenWidth * 0.06, // Responsive icon size
                   ),
@@ -355,7 +370,6 @@ class LibraryScreen extends StatelessWidget {
       ),
     );
   }
-
   void _showComingSoon(BuildContext context, bool isDarkTheme) {
     final Color snackBarBg = isDarkTheme ? Colors.grey[800]! : Colors.grey[900]!;
     final Color snackBarText = Colors.white;

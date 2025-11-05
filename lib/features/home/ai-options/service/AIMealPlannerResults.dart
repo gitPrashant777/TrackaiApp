@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart' as lucide;
 
+import '../../../settings/service/geminiservice.dart';
 import '../mealPlanner.dart';
 class AIMealPlannerResults extends StatefulWidget {
   final Map<String, dynamic> mealPlan;
@@ -80,7 +81,7 @@ class _AIMealPlannerResultsState extends State<AIMealPlannerResults> {
     setState(() => _isSaving = true);
     try {
       // NOTE: Assuming this service method exists
-      // await GeminiService.saveMealPlan(widget.mealPlan);
+      await GeminiService.saveMealPlan(widget.mealPlan);
       _showSuccessSnackBar('Meal plan saved successfully!');
     } catch (e) {
       _showErrorSnackBar('Failed to save plan: ${e.toString()}');

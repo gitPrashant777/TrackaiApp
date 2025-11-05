@@ -3,13 +3,12 @@ import 'package:trackai/features/onboarding/alldone.dart';
 import 'package:trackai/features/onboarding/dietpref.dart';
 import 'package:trackai/features/onboarding/dob.dart';
 import 'package:trackai/features/onboarding/genderselection.dart';
-import 'package:trackai/features/onboarding/goalpace.dart';
 import 'package:trackai/features/onboarding/goalselection.dart';
 import 'package:trackai/features/onboarding/heightweight.dart';
 import 'package:trackai/features/onboarding/obcomplete.dart';
 import 'package:trackai/features/onboarding/plan.dart';
 import 'package:trackai/features/onboarding/service/observices.dart';
-import 'package:trackai/features/onboarding/onboarding_data.dart';
+import 'package:trackai/features/onboarding/onboarding_data.dart'; // Make sure this path is correct
 import 'package:trackai/features/onboarding/seturtarget.dart';
 import 'package:trackai/features/onboarding/targetanalysis.dart';
 import 'package:trackai/features/onboarding/track_long_term.dart';
@@ -82,7 +81,7 @@ class _OnboardingFlowState extends State<OnboardingFlow>
         onBack: _previousPage,
         onDataUpdate: (data) => _updateData('goal', data),
       ),
-      // Page 5: Long Term Results (for maintain weight) or Set Target (for gain/lose)
+      // Page 5: Long Term Results (for maintain weight)
       LongTermResultsPage(onNext: _nextPage, onBack: _previousPage),
       // Page 6: Accomplishment
       AccomplishmentPage(
@@ -113,7 +112,7 @@ class _OnboardingFlowState extends State<OnboardingFlow>
         onBack: _previousPage,
         onboardingData: onboardingData.toMap(),
       ),
-      // Page 13: Onboarding Completion (NEW)
+      // Page 12: Onboarding Completion (NEW)
       OnboardingCompletionPage(
         onComplete: _completeOnboarding,
         onBack: _previousPage,
@@ -180,8 +179,13 @@ class _OnboardingFlowState extends State<OnboardingFlow>
           TargetAnalysisPage(
             onNext: _nextPage,
             onBack: _previousPage,
-            targetAmount: onboardingData.targetAmount ?? 0.0,
+            // --- FIXED ---
+            // Read the correct amount based on the unit
+            targetAmount: (onboardingData.targetUnit == 'kg'
+                ? onboardingData.targetAmountKg
+                : onboardingData.targetAmountLbs) ?? 0.0,
             targetUnit: onboardingData.targetUnit ?? 'kg',
+            // --- END FIX ---
             targetTimeframe: onboardingData.targetTimeframe ?? 0,
             goal: goal,
           ),
@@ -209,22 +213,22 @@ class _OnboardingFlowState extends State<OnboardingFlow>
           // Page 11: BMI Results
           _buildBmiPage(),
 
-          // Page 13: All Done
+          // Page 12: All Done (NOTE: Your page count was off, this is page 12)
           AllDonePage(onComplete: _nextPage, onBack: _previousPage),
-          // Page 14: Personalized Plan (NEW)
+          // Page 13: Personalized Plan (NEW)
           PersonalizedPlanPage(
             onNext: _nextPage,
             onBack: _previousPage,
             onboardingData: onboardingData.toMap(),
           ),
-          // Page 15: Onboarding Completion (NEW)
+          // Page 14: Onboarding Completion (NEW)
           OnboardingCompletionPage(
             onComplete: _completeOnboarding,
             onBack: _previousPage,
           ),
         ];
       } else {
-        // For maintain weight goal - 13 pages total (added 2 new pages)
+        // For maintain weight goal - 12 pages total
         _totalPages = 12;
         // Keep the original flow with new pages added at the end
         _initializePages();
@@ -253,12 +257,12 @@ class _OnboardingFlowState extends State<OnboardingFlow>
         case 'accomplishment':
           onboardingData.accomplishment = value;
           break;
+      // --- REMOVED OLD FIELDS ---
         case 'desiredWeight':
-          onboardingData.desiredWeight = value;
           break;
         case 'goalPace':
-          onboardingData.goalPace = value;
           break;
+      // --- END REMOVAL ---
         case 'dietPreference':
           onboardingData.dietPreference = value;
           break;
@@ -266,9 +270,6 @@ class _OnboardingFlowState extends State<OnboardingFlow>
     });
   }
 
-  //
-  // --- BUG FIX 1: CORRECTLY SAVE METRIC/IMPERIAL DATA ---
-  //
   void _updateHeightWeightData(Map<String, dynamic> data) {
     print('Height/Weight data received: $data');
     setState(() {
@@ -277,8 +278,6 @@ class _OnboardingFlowState extends State<OnboardingFlow>
 
       if (isMetric) {
         // User entered Metric (cm/kg)
-        // Your OnboardingData class uses imperial (lbs/ft/in) as the
-        // source of truth, so we MUST convert and save to those properties.
         double cm = data['heightCm']?.toDouble() ?? onboardingData.heightCm;
         double kg = data['weightKg']?.toDouble() ?? onboardingData.weightKg;
 
@@ -288,7 +287,6 @@ class _OnboardingFlowState extends State<OnboardingFlow>
         onboardingData.weightLbs = kg * 2.20462;
       } else {
         // User entered Imperial (ft/in/lbs)
-        // This logic was already correct.
         onboardingData.heightFeet =
             data['heightFeet'] ?? onboardingData.heightFeet;
         onboardingData.heightInches =
@@ -301,9 +299,9 @@ class _OnboardingFlowState extends State<OnboardingFlow>
       int bmiPageIndex;
       if (onboardingData.goal == 'lose_weight' ||
           onboardingData.goal == 'gain_weight') {
-        bmiPageIndex = 10; // Page 11 in 15-page flow
+        bmiPageIndex = 10; // Page 11 in 14-page flow
       } else {
-        bmiPageIndex = 8; // Page 9 in 13-page flow
+        bmiPageIndex = 8; // Page 9 in 12-page flow
       }
 
       if (_pages.length > bmiPageIndex) {
@@ -314,22 +312,26 @@ class _OnboardingFlowState extends State<OnboardingFlow>
   }
 
   //
-  // --- BUG FIX 2: USE THE CORRECT KEY FROM SETYOURTARGETPAGE ---
+  // --- BUG FIX: ASSIGN TO NEW FIELDS ---
   //
   void _updateTargetData(Map<String, dynamic> data) {
     setState(() {
-      // The key from SetYourTargetPage is 'targetAmountKg', not 'targetAmount'.
-      onboardingData.targetAmount = data['targetAmountKg']; // <-- FIXED
+      // Assign data to the correct fields on the onboardingData object
+      onboardingData.targetAmountKg = data['targetAmountKg'];
+      onboardingData.targetAmountLbs = data['targetAmountLbs'];
       onboardingData.targetUnit = data['targetUnit'];
       onboardingData.targetTimeframe = data['targetTimeframe'];
+      onboardingData.targetPaceKg = data['targetPaceKg'];
 
-      // Update the Target Analysis page with new data (index 5 in 15-page flow)
+      // Update the Target Analysis page (index 5)
       if (_pages.length > 5) {
         _pages[5] = TargetAnalysisPage(
           onNext: _nextPage,
           onBack: _previousPage,
-          // We pass the *original* amount/unit for display
-          targetAmount: data['targetAmount'] ?? data['targetAmountKg'] ?? 0.0,
+          // Pass the correct amount for display based on the selected unit
+          targetAmount: (onboardingData.targetUnit == 'kg'
+              ? onboardingData.targetAmountKg
+              : onboardingData.targetAmountLbs) ?? 0.0,
           targetUnit: onboardingData.targetUnit ?? 'kg',
           targetTimeframe: onboardingData.targetTimeframe ?? 0,
           goal: onboardingData.goal,
@@ -476,6 +478,10 @@ class _OnboardingFlowState extends State<OnboardingFlow>
   }
 
   Widget _buildProgressIndicator() {
+    // Recalculate total pages here in case it changed
+    String goal = onboardingData.goal;
+    _totalPages = (goal == 'lose_weight' || goal == 'gain_weight') ? 14 : 12;
+
     return Column(
       children: [
         Row(

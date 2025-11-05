@@ -3,9 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
+import 'package:trackai/features/analytics/screens/CycleOS/hormones_info_screen.dart';
 
 // Import your other screens
 import 'FullCalendarScreen.dart';
+import 'LogMenstrualCycleForm.dart'; // Make sure this path is correct
 import 'analyticsscreen.dart'; // Make sure this path is correct
 import 'InsightsScreen.dart'; // Make sure this path is correct
 
@@ -25,7 +27,7 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
   int _cycleLengthDays = 28;
   int _periodLengthDays = 5;
   DateTime? _lastPeriodDate;
-  DateTime _currentDate = DateTime.now();
+  // DateTime _currentDate = DateTime.now(); // No longer needed for week calendar
 
   // --- NEW STATE VARIABLES ---
   int _daysToOvulation = 0;
@@ -38,18 +40,23 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
     _loadCycleData();
   }
 
+  // --- ADDED FUNCTION TO PUSH FULL SCREEN ---
   Future<void> _showLogCycleForm() async {
-    final result = await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => LogMenstrualCycleForm(),
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LogMenstrualCycleForm(),
+      ),
     );
 
+    // This logic stays the same.
+    // If the form was saved, 'result' will be true
     if (result == true) {
       _loadCycleData();
     }
   }
+  // --- END OF ADDED FUNCTION ---
+
 
   // --- MODIFIED FUNCTION ---
   Future<void> _loadCycleData() async {
@@ -143,6 +150,7 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
             setState(() {
               predictedPeriod = 'Setup Required';
               fertileWindow = 'Setup Required';
+              // --- THIS IS THE KEY for the "Log your cycle" text ---
               currentPhase = 'Log your cycle';
               _pregnancyChance = ''; // <-- Reset
               _isLoadingData = false;
@@ -154,6 +162,7 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
           setState(() {
             predictedPeriod = 'Setup Required';
             fertileWindow = 'Setup Required';
+            // --- THIS IS THE KEY for the "Log your cycle" text ---
             currentPhase = 'Log your cycle';
             _pregnancyChance = ''; // <-- Reset
             _isLoadingData = false;
@@ -181,16 +190,16 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
 
     // 1. Menstrual Phase
     if (day <= periodLength) {
-      return {'phase': 'Menstrual Phase', 'chance': 'Very Low chance of pregnancy'};
+      return {'phase': 'Menstrual Phase', 'chance': 'Very Low chance of getting pregnant'};
     }
 
     // 2. Ovulation Phase (Fertile Window)
     if (DateUtils.isSameDay(today, ovulationDay)) {
-      return {'phase': 'Ovulation Day', 'chance': 'High chance of pregnancy'};
+      return {'phase': 'Ovulation Day', 'chance': 'High chance of getting pregnant'};
     }
     if ((today.isAfter(fertileStart) || DateUtils.isSameDay(today, fertileStart)) &&
         (today.isBefore(fertileEnd) || DateUtils.isSameDay(today, fertileEnd))) {
-      return {'phase': 'Ovulation Phase', 'chance': 'High chance of pregnancy'};
+      return {'phase': 'Ovulation Phase', 'chance': 'High chance of getting pregnant'};
     }
 
     // 3. Follicular Phase (after period, before fertile window)
@@ -199,38 +208,59 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
     int follicularEnd = approxOvulationDay - 6;
 
     if (day <= follicularEnd) {
-      return {'phase': 'Follicular Phase', 'chance': 'Low chance of pregnancy'};
+      return {'phase': 'Follicular Phase', 'chance': 'Low chance of getting pregnant'};
     }
 
     // 4. Luteal Phase (after fertile window)
     // Anything after fertile window and before next period
-    return {'phase': 'Luteal Phase', 'chance': 'Very Low chance of pregnancy'};
+    return {'phase': 'Luteal Phase', 'chance': 'Very Low chance of getting pregnant'};
   }
   // ----------------------------------------------
+
+  // --- NEW HELPER FUNCTION FOR COLOR ---
+  Color _getPregnancyChanceColor() {
+    if (_pregnancyChance.contains('High')) {
+      return Color(0xFFE91E63); // Pink
+    } else if (_pregnancyChance.contains('Low')) {
+      return Colors.teal; // Green/Teal
+    }
+    return Colors.black.withOpacity(0.7); // Grey for "Very Low"
+  }
+  // -------------------------------------
 
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final weekDates = _getWeekDates(_currentDate);
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5E6F1),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: const Text(
-          'TODAY',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
-            letterSpacing: 0.5,
-          ),
+        // --- MODIFIED: Title and alignment ---
+        title: Row(
+          mainAxisSize: MainAxisSize.min, // Keep content tight
+          children: [
+            // Add your image here
+            Image.asset(
+              'assets/images/os.jpg',
+              width: 28, // Adjust size as needed
+              height: 28,
+            ),
+            const SizedBox(width: 8), // Spacing
+            const Text(
+              'Cycle OS',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.black,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
         ),
-        centerTitle: true,
+        centerTitle: false,// Aligns to the left
+        // ------------------------------------
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_month_outlined, color: Color(0xFFE91E63)),
@@ -247,14 +277,36 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            Container(
-              color: Colors.white,
-              padding: EdgeInsets.symmetric(vertical: 10),
-              child: _buildWeekCalendar(screenWidth, screenHeight, weekDates),
-            ),
+            // --- REMOVED: Week Calendar Container ---
+
+            // --- ADDED: Top padding to replace the calendar space ---
             const SizedBox(height: 30),
+
+            // --- ADDED NEW BUTTON ---
+            _buildHormonesButton(),
+            const SizedBox(height: 25), // Space between button and circle
+            // ------------------------
+
             _buildCycleDayCircle(), // This widget is modified
             const SizedBox(height: 20),
+
+            // --- NEW: Pregnancy chance text moved here ---
+            if (!_isLoadingData && _pregnancyChance.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 10.0),
+                child: Text(
+                  _pregnancyChance,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _getPregnancyChanceColor(), // Dynamic color
+                      height: 1.2
+                  ),
+                ),
+              ),
+            // -------------------------------------------
+
             _buildLogCycleWidget(),
             const SizedBox(height: 20),
             _buildPredictions(), // This widget is modified
@@ -267,94 +319,73 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
     );
   }
 
-  List<DateTime> _getWeekDates(DateTime date) {
-    // ... (This function is correct, no changes needed) ...
-    final startOfWeek = date.subtract(Duration(days: date.weekday % 7));
-    return List.generate(7, (index) => startOfWeek.add(Duration(days: index)));
-  }
+  // --- REMOVED: _getWeekDates function ---
 
-  Widget _buildWeekCalendar(
-      double screenWidth,
-      double screenHeight,
-      List<DateTime> weekDates,
-      ) {
-    // ... (This function is correct, no changes needed) ...
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.04),
-      decoration: BoxDecoration(color: Colors.white),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: weekDates.asMap().entries.map((entry) {
-          final date = entry.value;
-          final dayLetters = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-          final dayLetter = dayLetters[date.weekday % 7];
-
-          final today = DateTime.now();
-          final isToday = date.day == today.day &&
-              date.month == today.month &&
-              date.year == today.year;
-
-          return Column(
-            children: [
-              Text(
-                dayLetter,
-                style: TextStyle(
-                  color: isToday ? Color(0xFFE91E63) : Colors.black54,
-                  fontSize: screenWidth * 0.035,
-                  fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
-                ),
-              ),
-              SizedBox(height: screenHeight * 0.008),
-              Container(
-                width: screenWidth * 0.1,
-                height: screenWidth * 0.1,
-                decoration: BoxDecoration(
-                    color: isToday ? Color(0xFFE91E63).withOpacity(0.2) : Colors.transparent,
-                    shape: BoxShape.circle,
-                    border: isToday ? Border.all(color: Color(0xFFE91E63), width: 1.5) : null
-                ),
-                child: Center(
-                  child: Text(
-                    '${date.day}',
-                    style: TextStyle(
-                      color: isToday ? Color(0xFFE91E63) : Colors.black87,
-                      fontSize: screenWidth * 0.04,
-                      fontWeight: isToday ? FontWeight.bold : FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
+  // --- REMOVED: _buildWeekCalendar function ---
 
   // --- MODIFIED WIDGET ---
   Widget _buildCycleDayCircle() {
-    String ovulationText = '';
-
-    // --- NEW: Logic for pregnancy chance color ---
-    Color chanceColor = Colors.black.withOpacity(0.6); // Default
-    if (_pregnancyChance.contains('High')) {
-      chanceColor = Color(0xFFE91E63); // Pink
-    } else if (_pregnancyChance.contains('Low')) {
-      chanceColor = Colors.teal; // Green/Teal
-    } else if (_pregnancyChance.contains('Very Low')) {
-      chanceColor = Colors.black.withOpacity(0.6); // Grey
+    // --- NEW: Check for "Log your cycle" state ---
+    if (currentPhase == 'Log your cycle' && !_isLoadingData) {
+      return Container(
+        width: 200,
+        height: 200,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFFE91E63).withOpacity(0.3),
+              const Color(0xFFE91E63).withOpacity(0.15),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFE91E63).withOpacity(0.1),
+              blurRadius: 15,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                height: 64, // Give it space
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 10), // Prevent overflow
+                child: const Text(
+                  'Log Your Cycle',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold, // Make it bold
+                      color: Color(0xFFE91E63),
+                      height: 1.2
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8), // Increased spacing
+              Text(
+                'to get predictions',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black.withOpacity(0.6),
+                    height: 1.2
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
     }
-    // ------------------------------------------
+    // --- END "Log your cycle" state ---
 
-    if (_isLoadingData) {
-      ovulationText = '...';
-    } else if (_daysToOvulation == 0) {
-      ovulationText = 'Ovulation Today';
-    } else if (_daysToOvulation == 1) {
-      ovulationText = 'Ovulation in 1 day';
-    } else if (_daysToOvulation > 1) {
-      ovulationText = 'Ovulation in $_daysToOvulation days';
-    }
+    // --- REMOVED ovulationText variable and logic ---
 
     return Container(
       width: 200,
@@ -381,60 +412,21 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              'CYCLE DAY',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black.withOpacity(0.7),
-                letterSpacing: 1,
-              ),
-            ),
-            const SizedBox(height: 8),
             _isLoadingData
                 ? SizedBox(
-                height: 64,
+                height: 64, // Keep space for loader
                 child: Center(
                     child: CircularProgressIndicator(
                         strokeWidth: 3,
                         valueColor: AlwaysStoppedAnimation(Colors.black54))))
-                : Text(
-              '$cycleDay',
-              style: const TextStyle(
-                fontSize: 64,
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-                height: 1,
-              ),
+                : Container(
+              height: 64, // Give it space
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 10), // Prevent overflow
+              // --- MODIFIED: Call new helper function ---
+              child: _buildOvulationTextWidget(),
             ),
-            const SizedBox(height: 4),
-
-            if (ovulationText.isNotEmpty)
-              Text(
-                ovulationText,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFE91E63),
-                    height: 1.2
-                ),
-              ),
-            const SizedBox(height: 4),
-
-            // --- MODIFIED: Show phase and chance separately ---
-            Text(
-              _isLoadingData ? 'Loading...' : currentPhase,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black.withOpacity(0.6),
-                  height: 1.2
-              ),
-            ),
-
-            // ------------------------------------------------
+            // --- REMOVED old Text widget and commented-out phase text ---
           ],
         ),
       ),
@@ -442,10 +434,70 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
   }
   // -------------------------
 
+  // --- NEW HELPER WIDGET FOR RICHTEXT ---
+  Widget _buildOvulationTextWidget() {
+    // Define styles
+    final smallPinkStyle = TextStyle(
+      fontSize: 22,
+      fontWeight: FontWeight.bold,
+      color: Color(0xFFE91E63),
+      height: 1.2,
+    );
+    final bigBlackStyle = TextStyle(
+      fontSize: 36, // "big"
+      fontWeight: FontWeight.bold,
+      color: Colors.black, // "color black"
+      height: 1.1,
+    );
+
+    if (_daysToOvulation == 0) {
+      // Case 1: Ovulation (Predicted)
+      return Text(
+        'Ovulation (Predicted)',
+        textAlign: TextAlign.center,
+        style: smallPinkStyle.copyWith(fontSize: 24),
+      );
+    } else if (_daysToOvulation == 1) {
+      // Case 2: Ovulation in 1 day (NO newline)
+      return RichText(
+        textAlign: TextAlign.center,
+        text: TextSpan(
+          style: smallPinkStyle,
+          children: [
+            TextSpan(text: 'Ovulation in '),
+            TextSpan(text: '1', style: bigBlackStyle),
+            TextSpan(text: ' day'),
+          ],
+        ),
+      );
+    } else if (_daysToOvulation > 1) {
+      // Case 3: Ovulation in \n X days (WITH newline)
+      return RichText(
+        textAlign: TextAlign.center,
+        text: TextSpan(
+          style: smallPinkStyle,
+          children: [
+            TextSpan(text: 'Ovulation in\n'), // Keep the newline
+            TextSpan(text: '$_daysToOvulation', style: bigBlackStyle),
+            TextSpan(text: ' days'),
+          ],
+        ),
+      );
+    } else {
+      // Fallback (e.g., if days are negative, though logic should prevent this)
+      return Text(
+        currentPhase, // Show the phase as a fallback
+        textAlign: TextAlign.center,
+        style: smallPinkStyle,
+      );
+    }
+  }
+  // --- END OF NEW HELPER WIDGET ---
+
   Widget _buildLogCycleWidget() {
     // ... (This function is correct, no changes needed) ...
     return GestureDetector(
-      onTap: _showLogCycleForm,
+      onTap: _showLogCycleForm, // This now calls the correct function
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
@@ -496,25 +548,15 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.calendar_today_outlined,
-                  size: 16, color: Color(0xFFE91E63)),
-              const SizedBox(width: 8),
-              Text('Next Period: ', style: baseStyle),
-              _isLoadingData
-                  ? Text('Calculating...', style: loadingStyle)
-                  : Text(predictedPeriod, style: valueStyle),
-            ],
-          ),
-          const SizedBox(height: 8),
+          // --- REMOVED: Next Period Row ---
+
+          // --- MODIFIED: "Fertile Days" to "Fertile Window" ---
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.favorite_border, size: 16, color: Color(0xFFE91E63)),
               const SizedBox(width: 8),
-              Text('Fertile Days: ', style: baseStyle),
+              Text('Fertile Window: ', style: baseStyle), // <-- Text changed
               _isLoadingData
                   ? Text('Calculating...', style: loadingStyle)
                   : Text(fertileWindow, style: valueStyle),
@@ -522,28 +564,63 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
           ),
           const SizedBox(height: 15),
 
-          if (!_isLoadingData && _pregnancyChance.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Text(
-                _pregnancyChance,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600, // Bolder
-                    color: Colors.teal, // Use dynamic color
-                    height: 1.2
-                ),
-              ),
-            ),
-
-          // --- REMOVED: Fertile hint text (now in circle) ---
-
+          // --- REMOVED: Pregnancy chance text (moved above log button) ---
         ],
       ),
     );
   }
   // -------------------------
+
+  // --- MODIFIED WIDGET: For the "Hormones & Cycle Info" button ---
+  Widget _buildHormonesButton() {
+    return Padding(
+      // --- MODIFIED: Reduced padding to make it wider ---
+      padding: const EdgeInsets.symmetric(horizontal: 30.0),
+      child: GestureDetector(
+        onTap: () {
+          // MODIFIED: Use the showModalBottomSheet from the previous step
+          showModalBottomSheet(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) {
+              return HormonesInfoScreen();
+            },
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14), // Button height
+          decoration: BoxDecoration(
+            color: const Color(0xFFE91E63), // Main pink color
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFE91E63).withOpacity(0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center, // Center the content
+            children: [
+              Icon(Icons.bubble_chart_outlined, color: Colors.white, size: 20),
+              SizedBox(width: 10),
+              Text(
+                'Hormones & Cycle Info',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  // -----------------------------------------------------------------
 
   Widget _buildQuickLogSection() {
     // ... (This function is correct, no changes needed) ...
@@ -672,368 +749,7 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
   }
 }
 
-// -------------------------------------------------------------------
-// --- LOG MENSTRUAL CYCLE FORM (No changes needed) ---
-// -------------------------------------------------------------------
 
-class LogMenstrualCycleForm extends StatefulWidget {
-  const LogMenstrualCycleForm({Key? key}) : super(key: key);
-
-  @override
-  State<LogMenstrualCycleForm> createState() => _LogMenstrualCycleFormState();
-}
-
-class _LogMenstrualCycleFormState extends State<LogMenstrualCycleForm> {
-  DateTime _selectedDate = DateTime.now();
-  DateTime _currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
-  final TextEditingController _cycleLengthController = TextEditingController(text: '28');
-  final TextEditingController _periodLengthController = TextEditingController(text: '5');
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  bool _isSaving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // You could fetch existing data here if you want this form to 'edit'
-    // For now, it just sets new data.
-  }
-
-  void _onDateSelected(DateTime date) {
-    setState(() {
-      _selectedDate = date;
-    });
-  }
-
-  Future<void> _saveEntry() async {
-    // ... (This function is correct, no changes needed) ...
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: Not logged in.')),
-      );
-      setState(() {
-        _isSaving = false;
-      });
-      return;
-    }
-
-    try {
-      final int cycleLength = int.parse(_cycleLengthController.text);
-      final int periodLength = int.parse(_periodLengthController.text);
-
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('period_settings')
-          .doc('config')
-          .set({
-        'lastPeriodDate': Timestamp.fromDate(_selectedDate),
-        'cycleLengthDays': cycleLength,
-        'periodLengthDays': periodLength,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Cycle data saved!')),
-        );
-        Navigator.pop(context, true);
-      }
-    } catch (e) {
-      print("Error saving entry: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving data: $e')),
-        );
-      }
-      setState(() {
-        _isSaving = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.all(24.0),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-        ),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Log Menstrual Cycle',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Select the start date of your last period.',
-                style: TextStyle(
-                  color: Colors.black54,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildMonthSelector(),
-              const SizedBox(height: 16),
-              _buildCalendarGrid(),
-              const SizedBox(height: 16),
-              _buildTextField(
-                label: 'Typical Cycle Length (days)*',
-                controller: _cycleLengthController,
-                hint: 'e.g., 28',
-              ),
-              const SizedBox(height: 15),
-              _buildTextField(
-                label: 'Period Length (days)',
-                controller: _periodLengthController,
-                hint: 'e.g., 5',
-                isOptional: true,
-              ),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.only(bottom:40),// Lift upward by 30px (adjust if needed)
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: Colors.grey[400]!),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: const Text(
-                          'Cancel',
-                          style: TextStyle(color: Colors.black54, fontSize: 16),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: _isSaving ? null : _saveEntry,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFE91E63),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: _isSaving
-                            ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                            AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                            : const Text(
-                          'Save Entry',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMonthSelector() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF5E6F1),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left, color: Colors.black54),
-            onPressed: () {
-              setState(() {
-                _currentMonth =
-                    DateTime(_currentMonth.year, _currentMonth.month - 1);
-              });
-            },
-          ),
-          Text(
-            DateFormat('MMMM yyyy').format(_currentMonth),
-            style: const TextStyle(
-              color: Colors.black,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right, color: Colors.black54),
-            onPressed: () {
-              setState(() {
-                _currentMonth =
-                    DateTime(_currentMonth.year, _currentMonth.month + 1);
-              });
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCalendarGrid() {
-    final daysInMonth =
-    DateUtils.getDaysInMonth(_currentMonth.year, _currentMonth.month);
-    final firstDayOfMonth =
-    DateTime(_currentMonth.year, _currentMonth.month, 1);
-    final weekdayOfFirstDay = firstDayOfMonth.weekday % 7;
-
-    final weekdays = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
-    return GridView.builder(
-      physics: const NeverScrollableScrollPhysics(),
-      shrinkWrap: true,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 7,
-        childAspectRatio: 1.1,
-      ),
-      itemCount: daysInMonth + weekdayOfFirstDay + 7,
-      itemBuilder: (context, index) {
-        if (index < 7) {
-          return Center(
-            child: Text(
-              weekdays[index],
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          );
-        }
-
-        int gridIndex = index - 7;
-        if (gridIndex < weekdayOfFirstDay) {
-          return Container();
-        }
-
-        final day = gridIndex - weekdayOfFirstDay + 1;
-        if (day > daysInMonth) {
-          return Container();
-        }
-
-        final currentDate =
-        DateTime(_currentMonth.year, _currentMonth.month, day);
-        final isSelected = DateUtils.isSameDay(currentDate, _selectedDate);
-
-        return GestureDetector(
-          onTap: () => _onDateSelected(currentDate),
-          child: Container(
-            alignment: Alignment.center,
-            margin: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFFE91E63) : Colors.transparent,
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              '$day',
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.black,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-    required String hint,
-    bool isOptional = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(color: Colors.black, fontSize: 14),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          style: const TextStyle(color: Colors.black),
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey[500]),
-            filled: true,
-            fillColor: const Color(0xFFF5E6F1),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Color(0xFFE91E63)),
-            ),
-          ),
-          validator: (value) {
-            // ... (Validator logic is correct, no changes needed) ...
-            if (!isOptional && (value == null || value.isEmpty)) {
-              return 'This field is required';
-            }
-            if (value != null && value.isNotEmpty) {
-              final n = int.tryParse(value);
-              if (n == null || n <= 0) {
-                return 'Please enter a valid number';
-              }
-            }
-            return null;
-          },
-        ),
-      ],
-    );
-  }
-}
 
 // -------------------------------------------------------------------
 // --- MAIN NAVIGATION SCREEN (No changes needed) ---

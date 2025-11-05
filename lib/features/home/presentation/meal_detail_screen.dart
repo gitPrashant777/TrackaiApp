@@ -152,10 +152,24 @@ class MealDetailScreen extends StatelessWidget {
                 children: [
                   Icon(lucide.LucideIcons.flame, color: Colors.black, size: sw * 0.07),
                   SizedBox(height: sh * 0.01),
-                  Text(
-                    '${entry.calories}',
-                    style: TextStyle(fontSize: sw * 0.12, fontWeight: FontWeight.bold, color: Colors.black),
+
+                  // --- MODIFIED WIDGET ---
+                  Container(
+                    // Added padding and rounded corners for a cleaner look
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300], // Background color as requested
+                      borderRadius: BorderRadius.circular(12), // Rounded corners
+                    ),
+                    child: Text(
+                      '${entry.calories}',
+                      style: TextStyle(fontSize: sw * 0.12, fontWeight: FontWeight.bold, color: Colors.black),
+                    ),
                   ),
+                  // --- END MODIFICATION ---
+
+                  SizedBox(height: sh * 0.005), // Added a small space
+
                   Text(
                     'kcal',
                     style: TextStyle(fontSize: sw * 0.04, color: Colors.grey[600]),

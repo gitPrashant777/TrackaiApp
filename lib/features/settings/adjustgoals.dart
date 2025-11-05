@@ -6,6 +6,24 @@ import 'package:trackai/features/settings/service/goalservice.dart';
 import 'package:trackai/core/themes/theme_provider.dart';
 import 'package:trackai/core/constants/appcolors.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart' as lucide;
+import 'package:flutter_markdown/flutter_markdown.dart'; // <-- ADD THIS IMPORT
+
+// --- HOMESCREEN COLORS (for light theme) ---
+const Color kScaffoldBackground = Color(0xFFF8F8F8);
+const Color kCardColor = Colors.white;
+const Color kInputFillColor = Color(0xFFF8F9FA); // From kCardColor in homescreen
+const Color kTextColor = Color(0xFF212529); // Colors.black87
+const Color kTextSecondaryColor = Color(0xFF6C757D); // Colors.black54
+
+// --- ACCENT COLORS (Inspired by Homescreen) ---
+final Color kPrimaryAccentColor = Colors.blue[700]!;
+final Color kPrimaryAccentColorDark = Colors.blue[300]!;
+final Color kCalorieColor = Colors.orange[600]!;
+final Color kProteinColor = Colors.amber[700]!;
+final Color kCarbsColor = Colors.green[600]!;
+final Color kFatColor = Colors.blue[400]!;
+final Color kFiberColor = Colors.brown[400]!;
+const Color kAIColor = Color(0xFF26A69A); // From Homescreen AI Lab
 
 class AdjustGoalsPage extends StatefulWidget {
   const AdjustGoalsPage({Key? key}) : super(key: key);
@@ -80,25 +98,28 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
         _isLoading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Goals calculated and saved successfully!'),
-          backgroundColor: AppColors.successColor,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Goals calculated and saved successfully!'),
+            backgroundColor: AppColors.successColor,
+          ),
+        );
+      }
     } catch (e) {
       setState(() {
         _error = e.toString();
         _isCalculating = false;
         _isLoading = false;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: AppColors.errorColor,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: AppColors.errorColor,
+          ),
+        );
+      }
     }
   }
 
@@ -124,117 +145,96 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
         _isCalculating = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Goals recalculated and saved successfully!'),
-          backgroundColor: AppColors.successColor,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Goals recalculated and saved successfully!'),
+            backgroundColor: AppColors.successColor,
+          ),
+        );
+      }
     } catch (e) {
       setState(() {
         _error = e.toString();
         _isCalculating = false;
       });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: AppColors.errorColor,
+          ),
+        );
+      }
+    }
+  }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: AppColors.errorColor,
+  // --- MODIFIED: Navigate to full-screen page ---
+  void _navigateToRecalculateScreen() async {
+    // Navigate to the new full-screen page and wait for a result
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const RecalculateGoalsScreen(),
+      ),
+    );
+
+    // If the user completed the form (result is not null), recalculate
+    if (result != null && result is Map<String, dynamic>) {
+      _calculateGoalsWithCustomData(result);
+    }
+  }
+
+  // --- STYLES REFACTORED ---
+
+  BoxDecoration _getCardDecoration(bool isDarkTheme) {
+    if (isDarkTheme) {
+      return BoxDecoration(
+        color: AppColors.darkCardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.grey[800]!,
+          width: 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 10,
+            spreadRadius: 0,
+            offset: Offset(0, 2),
+          ),
+        ],
+      );
+    } else {
+      // Light theme (like Homescreen)
+      return BoxDecoration(
+        color: kCardColor, // Colors.white
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.08),
+            blurRadius: 10,
+            spreadRadius: 0,
+            offset: Offset(0, 2),
+          ),
+        ],
       );
     }
   }
 
-  void _showRecalculateDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return RecalculateGoalsDialog(
-          onCalculate: _calculateGoalsWithCustomData,
-          isCalculating: _isCalculating,
-        );
-      },
-    );
+  Color _primaryTextColor(bool isDarkTheme) {
+    return isDarkTheme ? Colors.white : kTextColor;
   }
 
-  BoxDecoration _getCardDecoration(bool isDarkTheme) {
-    return BoxDecoration(
-      color: isDarkTheme ? AppColors.darkCardBackground : Colors.grey[50],
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(
-        color: isDarkTheme ? Colors.grey[700]! : Colors.grey[200]!,
-        width: 1,
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.grey.withOpacity(isDarkTheme ? 0.3 : 0.1),
-          blurRadius: 8,
-          spreadRadius: 1,
-          offset: Offset(0, 2),
-        ),
-      ],
-    );
+  Color _secondaryTextColor(bool isDarkTheme) {
+    return isDarkTheme ? Colors.grey[400]! : kTextSecondaryColor;
   }
 
-  Widget _buildInputField({
-    required String label,
-    required TextEditingController controller,
-    required bool isDarkTheme,
-    String? placeholder,
-    TextInputType? keyboardType,
-    int maxLines = 1,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: isDarkTheme ? Colors.white : Colors.black,
-          ),
-        ),
-        SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          maxLines: maxLines,
-          keyboardType: keyboardType,
-          style: TextStyle(
-            color: isDarkTheme ? Colors.white : Colors.black,
-          ),
-          decoration: InputDecoration(
-            hintText: placeholder,
-            hintStyle: TextStyle(
-              color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
-            ),
-            filled: true,
-            fillColor: isDarkTheme ? AppColors.inputFill(true) : AppColors.inputFill(false),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(
-                color: AppColors.borderColor(isDarkTheme),
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(
-                color: AppColors.borderColor(isDarkTheme),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(
-                color: isDarkTheme ? Colors.white : Colors.black,
-                width: 2,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+  Color _primaryIconColor(bool isDarkTheme) {
+    return isDarkTheme ? Colors.white : kTextColor;
   }
+
+  // --- END STYLES ---
 
   @override
   Widget build(BuildContext context) {
@@ -243,14 +243,17 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
         final isDarkTheme = themeProvider.isDarkMode;
 
         return Scaffold(
-          backgroundColor: isDarkTheme ? AppColors.darkBackground : Colors.white,
+          backgroundColor: isDarkTheme ? AppColors.darkBackground : kScaffoldBackground, // Updated light bg
           appBar: AppBar(
-            backgroundColor: isDarkTheme ? AppColors.darkCardBackground : Colors.grey[50], // Match card decoration
-            elevation: 1,
+            backgroundColor: isDarkTheme ? AppColors.darkCardBackground : kCardColor, // Updated light bg
+            surfaceTintColor: Colors.transparent, // Prevents tint on scroll
+            elevation: isDarkTheme ? 1 : 0, // Match homescreen (no elevation)
+            scrolledUnderElevation: 1, // Add slight elevation on scroll
+            shadowColor: Colors.grey.withOpacity(0.08),
             leading: IconButton(
               icon: Icon(
-                lucide.LucideIcons.arrowLeft, // Match web's ArrowLeftIcon
-                color: isDarkTheme ? Colors.white : Colors.black, // Black and white theme
+                lucide.LucideIcons.arrowLeft,
+                color: _primaryIconColor(isDarkTheme), // Updated color
               ),
               onPressed: () => Navigator.of(context).pop(),
             ),
@@ -258,7 +261,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
               children: [
                 Icon(
                   lucide.LucideIcons.target,
-                  color: isDarkTheme ? Colors.white : Colors.black, // Black and white theme
+                  color: isDarkTheme ? Colors.white : kPrimaryAccentColor, // UPDATED: Color
                   size: 24,
                 ),
                 SizedBox(width: 12),
@@ -267,7 +270,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: isDarkTheme ? Colors.white : Colors.black,
+                    color: _primaryTextColor(isDarkTheme), // Updated color
                   ),
                 ),
               ],
@@ -286,13 +289,13 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(
-              color: isDarkTheme ? Colors.white : Colors.black,
+              color: kPrimaryAccentColor, // UPDATED: Color
             ),
             const SizedBox(height: 16),
             Text(
               _isCalculating ? 'Calculating your goals...' : 'Loading goals...',
               style: TextStyle(
-                color: isDarkTheme ? Colors.white : Colors.black,
+                color: _primaryTextColor(isDarkTheme),
                 fontSize: 16,
               ),
             ),
@@ -313,15 +316,15 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.warning, // Match web's AlertTriangleIcon
+                  lucide.LucideIcons.triangleAlert, // <-- FIXED TYPO HERE
                   size: 64,
-                  color: AppColors.errorColor,
+                  color: AppColors.errorColor, // This is already colorful
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Oops! Something went wrong',
                   style: TextStyle(
-                    color: isDarkTheme ? Colors.white : Colors.black,
+                    color: _primaryTextColor(isDarkTheme),
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -331,7 +334,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                   _error!,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+                    color: _secondaryTextColor(isDarkTheme),
                     fontSize: 14,
                   ),
                 ),
@@ -341,7 +344,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                   child: ElevatedButton(
                     onPressed: _calculateGoals,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
+                      backgroundColor: kTextColor, // Use kTextColor (black)
                       foregroundColor: Colors.white,
                       padding: EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -379,13 +382,13 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                 Icon(
                   lucide.LucideIcons.target,
                   size: 64,
-                  color: isDarkTheme ? Colors.white : Colors.black, // Black and white theme
+                  color: isDarkTheme ? Colors.white : kPrimaryAccentColor, // UPDATED: Color
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'No goals found',
                   style: TextStyle(
-                    color: isDarkTheme ? Colors.white : Colors.black,
+                    color: _primaryTextColor(isDarkTheme),
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -394,7 +397,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                 Text(
                   'Let\'s calculate your personalized nutrition goals',
                   style: TextStyle(
-                    color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+                    color: _secondaryTextColor(isDarkTheme),
                     fontSize: 14,
                   ),
                 ),
@@ -404,7 +407,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                   child: ElevatedButton(
                     onPressed: _calculateGoals,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.black,
+                      backgroundColor: kTextColor,
                       foregroundColor: Colors.white,
                       padding: EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -435,6 +438,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
       );
     }
 
+    // Main content when data exists
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -450,14 +454,14 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                   children: [
                     Icon(
                       lucide.LucideIcons.target,
-                      color: isDarkTheme ? Colors.white : Colors.black,
+                      color: isDarkTheme ? Colors.white : kPrimaryAccentColor, // UPDATED: Color
                       size: 20,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       'Your Daily Targets',
                       style: TextStyle(
-                        color: isDarkTheme ? Colors.white : Colors.black,
+                        color: _primaryTextColor(isDarkTheme),
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -468,7 +472,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                 Text(
                   'These are your AI-generated daily nutritional goals. You can recalculate them anytime.',
                   style: TextStyle(
-                    color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+                    color: _secondaryTextColor(isDarkTheme),
                     fontSize: 14,
                   ),
                 ),
@@ -484,21 +488,21 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
               children: [
                 Icon(
                   lucide.LucideIcons.flame,
-                  color: isDarkTheme ? Colors.white : Colors.black,
+                  color: kCalorieColor, // UPDATED: Color
                   size: 32,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Calories',
                   style: TextStyle(
-                    color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+                    color: _secondaryTextColor(isDarkTheme),
                     fontSize: 14,
                   ),
                 ),
                 Text(
                   '${_goalsData!['calories']}',
                   style: TextStyle(
-                    color: isDarkTheme ? Colors.white : Colors.black,
+                    color: _primaryTextColor(isDarkTheme),
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                   ),
@@ -506,7 +510,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                 Text(
                   'kcal',
                   style: TextStyle(
-                    color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+                    color: _secondaryTextColor(isDarkTheme),
                     fontSize: 14,
                   ),
                 ),
@@ -519,10 +523,11 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
               Expanded(
                 child: _buildMacroCard(
                   isDarkTheme,
-                  lucide.LucideIcons.dumbbell,
+                  lucide.LucideIcons.zap, // Homescreen uses zap for protein
                   'Protein',
                   '${_goalsData!['protein']}',
                   'g',
+                  kProteinColor, // UPDATED: Color
                 ),
               ),
               const SizedBox(width: 16),
@@ -533,6 +538,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                   'Carbs',
                   '${_goalsData!['carbs']}',
                   'g',
+                  kCarbsColor, // UPDATED: Color
                 ),
               ),
             ],
@@ -547,6 +553,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                   'Fat',
                   '${_goalsData!['fat']}',
                   'g',
+                  kFatColor, // UPDATED: Color
                 ),
               ),
               const SizedBox(width: 16),
@@ -557,6 +564,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                   'Fiber',
                   '${_goalsData!['fiber']}',
                   'g',
+                  kFiberColor, // UPDATED: Color
                 ),
               ),
             ],
@@ -572,14 +580,14 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                   children: [
                     Icon(
                       lucide.LucideIcons.brain,
-                      color: isDarkTheme ? Colors.white : Colors.black,
+                      color: kAIColor, // UPDATED: Color
                       size: 20,
                     ),
                     const SizedBox(width: 8),
                     Text(
                       'AI Explanation',
                       style: TextStyle(
-                        color: isDarkTheme ? Colors.white : Colors.black,
+                        color: _primaryTextColor(isDarkTheme),
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -590,15 +598,16 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                 Text(
                   'Detailed breakdown of your personalized macro plan',
                   style: TextStyle(
-                    color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+                    color: _secondaryTextColor(isDarkTheme),
                     fontSize: 14,
                   ),
                 ),
                 const SizedBox(height: 20),
+                // Inner explanation card
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: isDarkTheme ? AppColors.darkCardBackground : Colors.grey[50],
+                    color: isDarkTheme ? AppColors.darkBackground : kInputFillColor, // Use input fill
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isDarkTheme ? Colors.grey[700]! : Colors.grey[200]!,
@@ -611,7 +620,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                       Text(
                         'Your Daily Energy Needs:',
                         style: TextStyle(
-                          color: isDarkTheme ? Colors.white : Colors.black,
+                          color: _primaryTextColor(isDarkTheme),
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -620,7 +629,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                       Text(
                         '• Your Basal Metabolic Rate (BMR) is approximately ${_goalsData!['bmr']} kcal, the energy your body needs at rest.',
                         style: TextStyle(
-                          color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+                          color: _secondaryTextColor(isDarkTheme),
                           fontSize: 14,
                           height: 1.5,
                         ),
@@ -629,7 +638,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                       Text(
                         '• With your activity level, your Total Daily Energy Expenditure (TDEE) is about ${_goalsData!['tdee']} kcal to maintain your current weight.',
                         style: TextStyle(
-                          color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+                          color: _secondaryTextColor(isDarkTheme),
                           fontSize: 14,
                           height: 1.5,
                         ),
@@ -638,7 +647,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                       Text(
                         'Your Calorie Goal:',
                         style: TextStyle(
-                          color: isDarkTheme ? Colors.white : Colors.black,
+                          color: _primaryTextColor(isDarkTheme),
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -647,7 +656,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                       Text(
                         '• Your target daily calorie intake is ${_goalsData!['calories']} kcal, a ${_goalsData!['calories'] > _goalsData!['tdee'] ? 'surplus' : 'deficit'} of ${(_goalsData!['calories'] - _goalsData!['tdee']).abs()} kcal ${_goalsData!['calories'] > _goalsData!['tdee'] ? 'above' : 'below'} your maintenance level.',
                         style: TextStyle(
-                          color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+                          color: _secondaryTextColor(isDarkTheme),
                           fontSize: 14,
                           height: 1.5,
                         ),
@@ -656,7 +665,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                       Text(
                         'Your Custom Macro Plan:',
                         style: TextStyle(
-                          color: isDarkTheme ? Colors.white : Colors.black,
+                          color: _primaryTextColor(isDarkTheme),
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
@@ -665,7 +674,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                       Text(
                         '• Your macros are balanced to support your goals, prioritizing protein for muscle preservation/growth, carbs for energy, and fats for hormonal function, with sufficient fiber for health and digestion.',
                         style: TextStyle(
-                          color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+                          color: _secondaryTextColor(isDarkTheme),
                           fontSize: 14,
                           height: 1.5,
                         ),
@@ -678,20 +687,40 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
                             Text(
                               'Additional AI Insights:',
                               style: TextStyle(
-                                color: isDarkTheme ? Colors.white : Colors.black,
+                                color: _primaryTextColor(isDarkTheme),
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                             const SizedBox(height: 12),
-                            Text(
-                              _goalsData!['explanation'].toString(),
-                              style: TextStyle(
-                                color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
-                                fontSize: 14,
-                                height: 1.5,
+
+                            // --- THIS IS THE FIX ---
+                            MarkdownBody(
+                              data: _goalsData!['explanation'].toString(),
+                              selectable: true, // Allows user to copy text
+                              styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                                // Style for regular text
+                                p: TextStyle(
+                                  color: _secondaryTextColor(isDarkTheme),
+                                  fontSize: 14,
+                                  height: 1.5,
+                                ),
+                                // Style for bold text (like **Your Calorie Goal:**)
+                                strong: TextStyle(
+                                  color: _primaryTextColor(isDarkTheme),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14, // Ensure same size
+                                  height: 1.5,
+                                ),
+                                // Style for bullet points
+                                listBullet: TextStyle(
+                                  color: _secondaryTextColor(isDarkTheme),
+                                  fontSize: 14,
+                                  height: 1.5,
+                                ),
                               ),
                             ),
+                            // --- END OF FIX ---
                           ],
                         ),
                     ],
@@ -704,9 +733,9 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _isCalculating ? null : _showRecalculateDialog,
+              onPressed: _isCalculating ? null : _navigateToRecalculateScreen, // MODIFIED
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.black,
+                backgroundColor: kTextColor,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -716,40 +745,40 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
               ),
               child: _isCalculating
                   ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Recalculating...',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(lucide.LucideIcons.sparkles),
-                        SizedBox(width: 8),
-                        Text(
-                          'Recalculate Goals',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Recalculating...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              )
+                  : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(lucide.LucideIcons.sparkles),
+                  SizedBox(width: 8),
+                  Text(
+                    'Recalculate Goals',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -758,7 +787,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
               child: Text(
                 'Last updated: ${_formatDate(_goalsData!['calculatedAt'])}',
                 style: TextStyle(
-                  color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+                  color: _secondaryTextColor(isDarkTheme),
                   fontSize: 12,
                 ),
               ),
@@ -769,13 +798,15 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
     );
   }
 
+  // --- WIDGET UPDATED ---
   Widget _buildMacroCard(
-    bool isDarkTheme,
-    IconData icon,
-    String label,
-    String value,
-    String unit,
-  ) {
+      bool isDarkTheme,
+      IconData icon,
+      String label,
+      String value,
+      String unit,
+      Color iconColor, // ADDED: Specific color for the icon
+      ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: _getCardDecoration(isDarkTheme),
@@ -783,14 +814,14 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
         children: [
           Icon(
             icon,
-            color: isDarkTheme ? Colors.white : Colors.black,
+            color: iconColor, // UPDATED: Use specific color
             size: 24,
           ),
           const SizedBox(height: 8),
           Text(
             value,
             style: TextStyle(
-              color: isDarkTheme ? Colors.white : Colors.black,
+              color: _primaryTextColor(isDarkTheme),
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -798,7 +829,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
           Text(
             label,
             style: TextStyle(
-              color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+              color: _secondaryTextColor(isDarkTheme),
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -806,7 +837,7 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
           Text(
             unit,
             style: TextStyle(
-              color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+              color: _secondaryTextColor(isDarkTheme),
               fontSize: 10,
             ),
           ),
@@ -820,23 +851,28 @@ class _AdjustGoalsPageState extends State<AdjustGoalsPage> {
   }
 }
 
-class RecalculateGoalsDialog extends StatefulWidget {
-  final Function(Map<String, dynamic>) onCalculate;
-  final bool isCalculating;
-
-  const RecalculateGoalsDialog({
-    Key? key,
-    required this.onCalculate,
-    required this.isCalculating,
-  }) : super(key: key);
+// ---
+// --- NEW FULL-SCREEN PAGE (Replaces RecalculateGoalsDialog)
+// ---
+class RecalculateGoalsScreen extends StatefulWidget {
+  const RecalculateGoalsScreen({Key? key}) : super(key: key);
 
   @override
-  State<RecalculateGoalsDialog> createState() => _RecalculateGoalsDialogState();
+  State<RecalculateGoalsScreen> createState() => _RecalculateGoalsScreenState();
 }
 
-class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
+class _RecalculateGoalsScreenState extends State<RecalculateGoalsScreen> {
   int _currentStep = 0;
   final PageController _pageController = PageController();
+
+  // --- Black & White Theme Colors ---
+  static const Color kBlack = Colors.black;
+  static const Color kWhite = Colors.white;
+  final Color kDarkBackground = Colors.grey[900]!;
+  final Color kDarkCard = Color(0xFF2C2C2E);
+  final Color kLightBackground = Colors.grey[100]!;
+  final Color kLightCard = Colors.white;
+  // ---
 
   // Form data
   int? _age;
@@ -854,32 +890,43 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
     'Light (1-3 days/wk)',
     'Moderate (3-5 days/wk)',
     'Active (6-7 days/wk)',
-  ]; // Aligned with web code
+  ];
 
   final List<String> _goalOptions = [
     'Weight Loss',
     'Maintenance',
     'Weight Gain',
-  ]; // Aligned with web code
+  ];
 
-  BoxDecoration _getDialogCardDecoration(bool isDarkTheme) {
-    return BoxDecoration(
-      color: isDarkTheme ? AppColors.darkCardBackground : Colors.grey[50],
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(
-        color: isDarkTheme ? Colors.grey[700]! : Colors.grey[200]!,
-        width: 1,
-      ),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.grey.withOpacity(isDarkTheme ? 0.3 : 0.1),
-          blurRadius: 8,
-          spreadRadius: 1,
-          offset: Offset(0, 2),
-        ),
-      ],
-    );
+  // --- STYLES FOR B&W SCREEN ---
+  Color _primaryTextColor(bool isDarkTheme) {
+    return isDarkTheme ? kWhite : kBlack;
   }
+
+  Color _secondaryTextColor(bool isDarkTheme) {
+    return isDarkTheme ? Colors.grey[400]! : Colors.grey[600]!;
+  }
+
+  Color _primaryIconColor(bool isDarkTheme) {
+    return isDarkTheme ? kWhite : kBlack;
+  }
+
+  Color _scaffoldBgColor(bool isDarkTheme) {
+    return isDarkTheme ? kBlack : kLightBackground;
+  }
+
+  Color _cardBgColor(bool isDarkTheme) {
+    return isDarkTheme ? kDarkBackground : kWhite;
+  }
+
+  Color _inputFillColor(bool isDarkTheme) {
+    return isDarkTheme ? kDarkCard : kLightBackground;
+  }
+
+  Color _borderColor(bool isDarkTheme) {
+    return isDarkTheme ? Colors.grey[700]! : Colors.grey[300]!;
+  }
+  // --- END B&W STYLES ---
 
   void _nextPage() {
     if (_canProceedFromStep(_currentStep)) {
@@ -909,6 +956,7 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
     }
   }
 
+  // MODIFIED: This now pops the screen with the form data as the result
   void _calculateGoals() {
     final formData = {
       'age': _age,
@@ -924,8 +972,8 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
       'dateOfBirth': DateTime.now().subtract(Duration(days: (_age ?? 25) * 365)),
     };
 
-    widget.onCalculate(formData);
-    Navigator.of(context).pop();
+    // Pop the screen and return the data
+    Navigator.of(context).pop(formData);
   }
 
   bool _canProceedFromStep(int step) {
@@ -961,7 +1009,7 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: isDarkTheme ? Colors.white : Colors.black,
+            color: _primaryTextColor(isDarkTheme),
           ),
         ),
         SizedBox(height: 8),
@@ -969,31 +1017,31 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
           maxLines: maxLines,
           keyboardType: keyboardType,
           style: TextStyle(
-            color: isDarkTheme ? Colors.white : Colors.black,
+            color: _primaryTextColor(isDarkTheme),
           ),
           decoration: InputDecoration(
             hintText: placeholder,
             hintStyle: TextStyle(
-              color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
+              color: _secondaryTextColor(isDarkTheme),
             ),
             filled: true,
-            fillColor: isDarkTheme ? AppColors.inputFill(true) : AppColors.inputFill(false),
+            fillColor: _inputFillColor(isDarkTheme),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(
-                color: AppColors.borderColor(isDarkTheme),
+                color: _borderColor(isDarkTheme),
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(
-                color: AppColors.borderColor(isDarkTheme),
+                color: _borderColor(isDarkTheme),
               ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: BorderSide(
-                color: isDarkTheme ? Colors.white : Colors.black,
+                color: _primaryIconColor(isDarkTheme), // B&W focus color
                 width: 2,
               ),
             ),
@@ -1008,158 +1056,126 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
   Widget build(BuildContext context) {
     final isDarkTheme = Provider.of<ThemeProvider>(context).isDarkMode;
 
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: EdgeInsets.all(16),
-      child: Container(
-        height: MediaQuery.of(context).size.height * 0.7,
-        decoration: _getDialogCardDecoration(isDarkTheme),
-        child: Column(
+    final String title = _currentStep == 0
+        ? 'Personal Details'
+        : _currentStep == 1
+        ? 'Body Measurements'
+        : 'Lifestyle & Goals';
+
+    return Scaffold(
+      backgroundColor: _scaffoldBgColor(isDarkTheme),
+      appBar: AppBar(
+        backgroundColor: _cardBgColor(isDarkTheme),
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(
+            lucide.LucideIcons.x, // Use X to close/discard
+            color: _primaryIconColor(isDarkTheme),
+          ),
+          onPressed: () => Navigator.of(context).pop(), // Pop with no result
+        ),
+        title: Column(
           children: [
-            Container(
-              padding: EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        lucide.LucideIcons.user,
-                        color: isDarkTheme ? Colors.white : Colors.black,
-                        size: 20,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        _currentStep == 0
-                            ? 'Personal Details'
-                            : _currentStep == 1
-                                ? 'Body Measurements'
-                                : 'Lifestyle & Goals',
-                        style: TextStyle(
-                          color: isDarkTheme ? Colors.white : Colors.black,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
+            Text(
+              title,
+              style: TextStyle(
+                color: _primaryTextColor(isDarkTheme),
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              'Step ${_currentStep + 1} of 3',
+              style: TextStyle(
+                color: _secondaryTextColor(isDarkTheme),
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(4.0),
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: List.generate(3, (index) {
+                return Expanded(
+                  child: Container(
+                    margin: EdgeInsets.symmetric(horizontal: 4),
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: index <= _currentStep
+                          ? _primaryIconColor(isDarkTheme) // B&W progress
+                          : (isDarkTheme ? Colors.grey[700]! : Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Step ${_currentStep + 1} of 3. Adjust your details to generate a new macro plan.',
+                );
+              }),
+            ),
+          ),
+        ),
+      ),
+      body: PageView(
+        controller: _pageController,
+        physics: NeverScrollableScrollPhysics(),
+        children: [
+          _buildPersonalDetailsPage(isDarkTheme),
+          _buildPhysicalDetailsPage(isDarkTheme),
+          _buildGoalsPage(isDarkTheme),
+        ],
+      ),
+      bottomNavigationBar: Container(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, 120), // More bottom padding
+        color: _cardBgColor(isDarkTheme),
+        child: Row(
+          children: [
+            if (_currentStep > 0)
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _previousPage,
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(
+                      color: _primaryIconColor(isDarkTheme),
+                    ),
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: Text(
+                    'Back',
                     style: TextStyle(
-                      color: isDarkTheme ? Colors.grey[400] : Colors.grey[600],
-                      fontSize: 14,
+                      color: _primaryTextColor(isDarkTheme),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: List.generate(3, (index) {
-                  return Expanded(
-                    child: Container(
-                      margin: EdgeInsets.symmetric(horizontal: 4),
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: index <= _currentStep
-                            ? isDarkTheme
-                                ? Colors.white
-                                : Colors.black
-                            : isDarkTheme
-                                ? Colors.grey[700]!
-                                : Colors.grey[200]!,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
+            if (_currentStep > 0) SizedBox(width: 16),
             Expanded(
-              child: PageView(
-                controller: _pageController,
-                physics: NeverScrollableScrollPhysics(),
-                children: [
-                  _buildPersonalDetailsPage(isDarkTheme),
-                  _buildPhysicalDetailsPage(isDarkTheme),
-                  _buildGoalsPage(isDarkTheme),
-                ],
-              ),
-            ),
-            Container(
-              padding: EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  if (_currentStep > 0)
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _previousPage,
-                        style: OutlinedButton.styleFrom(
-                          side: BorderSide(
-                            color: isDarkTheme ? Colors.white : Colors.black,
-                          ),
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              lucide.LucideIcons.arrowLeft,
-                              color: isDarkTheme ? Colors.white : Colors.black,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Back',
-                              style: TextStyle(
-                                color: isDarkTheme ? Colors.white : Colors.black,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  if (_currentStep > 0) SizedBox(width: 16),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _canProceedFromStep(_currentStep)
-                          ? (_currentStep == 2 ? _calculateGoals : _nextPage)
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        elevation: 2,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            _currentStep == 2 ? 'Calculate' : 'Next',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (_currentStep < 2) SizedBox(width: 8),
-                          if (_currentStep < 2)
-                            Icon(
-                              lucide.LucideIcons.arrowRight,
-                              color: Colors.white,
-                            ),
-                        ],
-                      ),
-                    ),
+              child: ElevatedButton(
+                onPressed: _canProceedFromStep(_currentStep)
+                    ? (_currentStep == 2 ? _calculateGoals : _nextPage)
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primaryIconColor(isDarkTheme), // kBlack or kWhite
+                  foregroundColor: _scaffoldBgColor(isDarkTheme), // kWhite or kBlack
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ],
+                  elevation: 2,
+                ),
+                child: Text(
+                  _currentStep == 2 ? 'Calculate' : 'Next',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ),
           ],
@@ -1168,10 +1184,59 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
     );
   }
 
-  Widget _buildPersonalDetailsPage(bool isDarkTheme) {
-    final ageController = TextEditingController(text: _age?.toString() ?? '');
+  // --- STYLED HELPER FOR SELECTION BUTTONS (B&W) ---
+  Widget _buildSelectionButton({
+    required bool isSelected,
+    required bool isDarkTheme,
+    required String text,
+    required VoidCallback onTap,
+  }) {
+    Color bgColor;
+    Color textColor;
+    Color borderColor;
 
-    return Padding(
+    if (isDarkTheme) {
+      bgColor = isSelected ? kWhite : kDarkCard;
+      textColor = isSelected ? kBlack : kWhite;
+      borderColor = isSelected ? kWhite : Colors.grey[700]!;
+    } else {
+      // Light theme
+      bgColor = isSelected ? kBlack : kLightCard;
+      textColor = isSelected ? kWhite : kBlack;
+      borderColor = isSelected ? kBlack : Colors.grey[300]!;
+    }
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            color: bgColor,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: borderColor,
+              width: isSelected ? 2 : 1, // Bolder when selected
+            ),
+          ),
+          child: Center(
+            child: Text(
+              text,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  // --- END STYLED HELPER ---
+
+  Widget _buildPersonalDetailsPage(bool isDarkTheme) {
+    return SingleChildScrollView(
       padding: EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1191,7 +1256,7 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
           Text(
             'Gender',
             style: TextStyle(
-              color: isDarkTheme ? Colors.white : Colors.black,
+              color: _primaryTextColor(isDarkTheme),
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -1199,90 +1264,26 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
           SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _gender = 'Male';
-                    });
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      color: _gender == 'Male'
-                          ? (isDarkTheme ? Colors.white : Colors.black)
-                          : isDarkTheme
-                              ? AppColors.darkCardBackground
-                              : Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _gender == 'Male'
-                            ? (isDarkTheme ? Colors.white : Colors.black)
-                            : isDarkTheme
-                                ? Colors.grey[700]!
-                                : Colors.grey[200]!,
-                        width: 1,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Male',
-                        style: TextStyle(
-                          color: _gender == 'Male'
-                              ? (isDarkTheme ? Colors.black : Colors.white)
-                              : isDarkTheme
-                                  ? Colors.white
-                                  : Colors.black,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              _buildSelectionButton(
+                isSelected: _gender == 'Male',
+                isDarkTheme: isDarkTheme,
+                text: 'Male',
+                onTap: () {
+                  setState(() {
+                    _gender = 'Male';
+                  });
+                },
               ),
               SizedBox(width: 16),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _gender = 'Female';
-                    });
-                  },
-                  child: Container(
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      color: _gender == 'Female'
-                          ? (isDarkTheme ? Colors.white : Colors.black)
-                          : isDarkTheme
-                              ? AppColors.darkCardBackground
-                              : Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _gender == 'Female'
-                            ? (isDarkTheme ? Colors.white : Colors.black)
-                            : isDarkTheme
-                                ? Colors.grey[700]!
-                                : Colors.grey[200]!,
-                        width: 1,
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        'Female',
-                        style: TextStyle(
-                          color: _gender == 'Female'
-                              ? (isDarkTheme ? Colors.black : Colors.white)
-                              : isDarkTheme
-                                  ? Colors.white
-                                  : Colors.black,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              _buildSelectionButton(
+                isSelected: _gender == 'Female',
+                isDarkTheme: isDarkTheme,
+                text: 'Female',
+                onTap: () {
+                  setState(() {
+                    _gender = 'Female';
+                  });
+                },
               ),
             ],
           ),
@@ -1292,13 +1293,7 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
   }
 
   Widget _buildPhysicalDetailsPage(bool isDarkTheme) {
-    final weightKgController = TextEditingController(text: _weightKg?.toString() ?? '');
-    final weightLbsController = TextEditingController(text: _weightLbs?.toString() ?? '');
-    final heightCmController = TextEditingController(text: _heightCm?.toString() ?? '');
-    final heightFeetController = TextEditingController(text: _heightFeet?.toString() ?? '');
-    final heightInchesController = TextEditingController(text: _heightInches?.toString() ?? '');
-
-    return Padding(
+    return SingleChildScrollView(
       padding: EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1306,10 +1301,10 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
           Container(
             padding: EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: isDarkTheme ? AppColors.darkCardBackground : Colors.grey[50],
+              color: _inputFillColor(isDarkTheme),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: isDarkTheme ? Colors.grey[700]! : Colors.grey[200]!,
+                color: _borderColor(isDarkTheme),
                 width: 1,
               ),
             ),
@@ -1323,16 +1318,13 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
                         _weightLbs = null;
                         _heightFeet = null;
                         _heightInches = null;
-                        weightLbsController.clear();
-                        heightFeetController.clear();
-                        heightInchesController.clear();
                       });
                     },
                     child: Container(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
                         color: _isMetric
-                            ? (isDarkTheme ? Colors.white : Colors.black)
+                            ? _primaryIconColor(isDarkTheme) // kBlack or kWhite
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(6),
                       ),
@@ -1341,10 +1333,8 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
                           'Metric (kg/cm)',
                           style: TextStyle(
                             color: _isMetric
-                                ? (isDarkTheme ? Colors.black : Colors.white)
-                                : isDarkTheme
-                                    ? Colors.white
-                                    : Colors.black,
+                                ? _scaffoldBgColor(isDarkTheme) // kWhite or kBlack
+                                : _primaryTextColor(isDarkTheme),
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1360,15 +1350,13 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
                         _isMetric = false;
                         _weightKg = null;
                         _heightCm = null;
-                        weightKgController.clear();
-                        heightCmController.clear();
                       });
                     },
                     child: Container(
                       padding: EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
                         color: !_isMetric
-                            ? (isDarkTheme ? Colors.white : Colors.black)
+                            ? _primaryIconColor(isDarkTheme) // kBlack or kWhite
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(6),
                       ),
@@ -1377,10 +1365,8 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
                           'Imperial (lbs/ft)',
                           style: TextStyle(
                             color: !_isMetric
-                                ? (isDarkTheme ? Colors.black : Colors.white)
-                                : isDarkTheme
-                                    ? Colors.white
-                                    : Colors.black,
+                                ? _scaffoldBgColor(isDarkTheme) // kWhite or kBlack
+                                : _primaryTextColor(isDarkTheme),
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1409,15 +1395,6 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
             },
           ),
           SizedBox(height: 24),
-          Text(
-            _isMetric ? 'Height (cm)' : 'Height (ft/in)',
-            style: TextStyle(
-              color: isDarkTheme ? Colors.white : Colors.black,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          SizedBox(height: 8),
           if (_isMetric)
             _buildInputField(
               label: 'Height (cm)',
@@ -1431,34 +1408,48 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
               },
             )
           else
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _buildInputField(
-                    label: 'Feet',
-                    isDarkTheme: isDarkTheme,
-                    placeholder: 'Feet',
-                    keyboardType: TextInputType.number,
-                    onChanged: (value) {
-                      setState(() {
-                        _heightFeet = int.tryParse(value);
-                      });
-                    },
+                Text(
+                  'Height (ft/in)',
+                  style: TextStyle(
+                    color: _primaryTextColor(isDarkTheme),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: _buildInputField(
-                    label: 'Inches',
-                    isDarkTheme: isDarkTheme,
-                    placeholder: 'Inches',
-                    keyboardType: TextInputType.number,
-                    onChanged: (value) {
-                      setState(() {
-                        _heightInches = int.tryParse(value);
-                      });
-                    },
-                  ),
+                SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildInputField(
+                        label: 'Feet',
+                        isDarkTheme: isDarkTheme,
+                        placeholder: 'e.g., 5',
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) {
+                          setState(() {
+                            _heightFeet = int.tryParse(value);
+                          });
+                        },
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: _buildInputField(
+                        label: 'Inches',
+                        isDarkTheme: isDarkTheme,
+                        placeholder: 'e.g., 10',
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) {
+                          setState(() {
+                            _heightInches = int.tryParse(value);
+                          });
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1466,6 +1457,67 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
       ),
     );
   }
+
+  // --- STYLED HELPER FOR LIST SELECTION BUTTONS (B&W) ---
+  Widget _buildListSelectionButton({
+    required bool isSelected,
+    required bool isDarkTheme,
+    required String text,
+    required VoidCallback onTap,
+  }) {
+    Color bgColor;
+    Color textColor;
+    Color borderColor;
+    Color iconColor;
+
+    if (isDarkTheme) {
+      bgColor = isSelected ? kWhite : kDarkCard;
+      textColor = isSelected ? kBlack : kWhite;
+      borderColor = isSelected ? kWhite : Colors.grey[700]!;
+      iconColor = isSelected ? kBlack : Colors.grey[400]!;
+    } else {
+      // Light theme
+      bgColor = isSelected ? kBlack : kLightCard;
+      textColor = isSelected ? kWhite : kBlack;
+      borderColor = isSelected ? kBlack : Colors.grey[300]!;
+      iconColor = isSelected ? kWhite : Colors.grey[600]!;
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: EdgeInsets.only(bottom: 8),
+        padding: EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: borderColor,
+            width: isSelected ? 2 : 1, // Bolder when selected
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+              color: iconColor,
+              size: 20,
+            ),
+            SizedBox(width: 12),
+            Text(
+              text,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  // --- END STYLED HELPER ---
 
   Widget _buildGoalsPage(bool isDarkTheme) {
     return Padding(
@@ -1477,7 +1529,7 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
             Text(
               'Workout Frequency',
               style: TextStyle(
-                color: isDarkTheme ? Colors.white : Colors.black,
+                color: _primaryTextColor(isDarkTheme),
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -1485,60 +1537,15 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
             SizedBox(height: 12),
             Column(
               children: _workoutOptions.map((option) {
-                return GestureDetector(
+                return _buildListSelectionButton(
+                  isSelected: _workoutFrequency == option,
+                  isDarkTheme: isDarkTheme,
+                  text: option,
                   onTap: () {
                     setState(() {
                       _workoutFrequency = option;
                     });
                   },
-                  child: Container(
-                    margin: EdgeInsets.only(bottom: 8),
-                    padding: EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _workoutFrequency == option
-                          ? (isDarkTheme ? Colors.white : Colors.black)
-                          : isDarkTheme
-                              ? AppColors.darkCardBackground
-                              : Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _workoutFrequency == option
-                            ? (isDarkTheme ? Colors.white : Colors.black)
-                            : isDarkTheme
-                                ? Colors.grey[700]!
-                                : Colors.grey[200]!,
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          _workoutFrequency == option
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          color: _workoutFrequency == option
-                              ? (isDarkTheme ? Colors.black : Colors.white)
-                              : isDarkTheme
-                                  ? Colors.grey[400]
-                                  : Colors.grey[600],
-                          size: 20,
-                        ),
-                        SizedBox(width: 12),
-                        Text(
-                          option,
-                          style: TextStyle(
-                            color: _workoutFrequency == option
-                                ? (isDarkTheme ? Colors.black : Colors.white)
-                                : isDarkTheme
-                                    ? Colors.white
-                                    : Colors.black,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 );
               }).toList(),
             ),
@@ -1546,7 +1553,7 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
             Text(
               'Primary Goal',
               style: TextStyle(
-                color: isDarkTheme ? Colors.white : Colors.black,
+                color: _primaryTextColor(isDarkTheme),
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -1554,60 +1561,15 @@ class _RecalculateGoalsDialogState extends State<RecalculateGoalsDialog> {
             SizedBox(height: 12),
             Column(
               children: _goalOptions.map((option) {
-                return GestureDetector(
+                return _buildListSelectionButton(
+                  isSelected: _goal == option,
+                  isDarkTheme: isDarkTheme,
+                  text: option,
                   onTap: () {
                     setState(() {
                       _goal = option;
                     });
                   },
-                  child: Container(
-                    margin: EdgeInsets.only(bottom: 8),
-                    padding: EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _goal == option
-                          ? (isDarkTheme ? Colors.white : Colors.black)
-                          : isDarkTheme
-                              ? AppColors.darkCardBackground
-                              : Colors.grey[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: _goal == option
-                            ? (isDarkTheme ? Colors.white : Colors.black)
-                            : isDarkTheme
-                                ? Colors.grey[700]!
-                                : Colors.grey[200]!,
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          _goal == option
-                              ? Icons.check_circle
-                              : Icons.radio_button_unchecked,
-                          color: _goal == option
-                              ? (isDarkTheme ? Colors.black : Colors.white)
-                              : isDarkTheme
-                                  ? Colors.grey[400]
-                                  : Colors.grey[600],
-                          size: 20,
-                        ),
-                        SizedBox(width: 12),
-                        Text(
-                          option,
-                          style: TextStyle(
-                            color: _goal == option
-                                ? (isDarkTheme ? Colors.black : Colors.white)
-                                : isDarkTheme
-                                    ? Colors.white
-                                    : Colors.black,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 );
               }).toList(),
             ),

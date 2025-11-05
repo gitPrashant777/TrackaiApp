@@ -552,7 +552,7 @@ class _AIMealPlannerState extends State<AIMealPlanner> {
           ),
           body: Column(
             children: [
-          _buildProgressIndicator(isDark),
+              _buildProgressIndicator(isDark),
               Expanded(
                 child: PageView(
                   controller: _pageController,

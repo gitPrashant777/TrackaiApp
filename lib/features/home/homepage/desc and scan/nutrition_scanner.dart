@@ -430,12 +430,25 @@ class _NutritionScannerScreenState extends State<NutritionScannerScreen>
   }
 
   // --- THIS WIDGET IS UPDATED ---
+  // lib/features/home/homepage/desc and scan/nutrition_scanner.dart
+
+// ... (keep all other code, including imports)
+
+  // --- THIS WIDGET IS UPDATED ---
   Widget _buildNutritionalEstimate() {
     if (_nutritionData == null) return const SizedBox();
 
     // Read from the new JSON structure (Step 2)
     final breakdown = _nutritionData!['estimatedNutrition'] ?? {};
-    final estimatedWeight = breakdown['estimatedWeightGrams'] ?? 0;
+
+    // --- ✅ FIX: Calculate total weight from the state list ---
+    // This ensures the weight always matches the user's edits from the
+    // "Refine Ingredients" tab and ignores any 'estimatedWeightGrams'
+    // value that might come back from the AI's recalculation.
+    final int estimatedWeight = _editableIngredients.fold(
+        0, (sum, item) => sum + (item['weightGrams'] as num? ?? 0).toInt());
+    // --- END FIX ---
+
     final calories = (breakdown['calories'] as num?)?.toInt() ?? 0;
     final protein = (breakdown['protein'] as num?)?.toInt() ?? 0;
     final carbsData = breakdown['carbohydrates'] ?? {};
@@ -461,6 +474,7 @@ class _NutritionScannerScreenState extends State<NutritionScannerScreen>
           ),
           const SizedBox(height: 8),
           Text(
+            // This now uses the correct local calculation
             'Estimated Weight: ~${estimatedWeight}g',
             style: const TextStyle(
               fontSize: 15,
@@ -654,6 +668,7 @@ class _NutritionScannerScreenState extends State<NutritionScannerScreen>
     );
   }
 
+// ... (paste the rest of the original file from _buildNutrientCard onwards)+
   Widget _buildNutrientCard(
       String title,
       String value,

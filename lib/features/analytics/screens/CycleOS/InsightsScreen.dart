@@ -70,16 +70,28 @@ class _InsightsScreenState extends State<InsightsScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        title: const Text(
-          'INSIGHTS',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: Colors.black,
-            letterSpacing: 0.5,
-          ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min, // Keeps the logo and text together
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              'assets/images/os.jpg', // Your logo path
+              width: 28, // Adjust size as needed
+              height: 28,
+            ),
+            const SizedBox(width: 8), // Space between logo and text
+            const Text(
+              'INSIGHTS',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Colors.black,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
         ),
-        centerTitle: true,
+        centerTitle: false,
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: _firestore

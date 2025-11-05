@@ -529,7 +529,21 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       ),
       title: Row(
         children: [
-          const SizedBox(width: 12),
+          const SizedBox(width: 12), // Keeps your original padding
+
+          // --- ADDED IMAGE ---
+          SizedBox(
+            width: 25,
+            height: 25,
+            child: Image.asset(
+              'assets/images/main.jpg', // Corrected path
+              fit: BoxFit.contain, // Prevents stretching
+            ),
+          ),
+          // --- ADDED SPACING ---
+          const SizedBox(width: 8),
+
+          // --- YOUR EXISTING TEXT ---
           ShaderMask(
             shaderCallback: (bounds) =>
                 AppColors.appBarGradient.createShader(bounds),

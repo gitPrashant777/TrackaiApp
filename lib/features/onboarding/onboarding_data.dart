@@ -1,3 +1,6 @@
+// ADD THIS IMPORT
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class OnboardingData {
   String gender;
   String otherApps;
@@ -9,15 +12,16 @@ class OnboardingData {
   DateTime? dateOfBirth;
   String goal;
   String accomplishment;
-  double desiredWeight;
-  String goalPace;
   String dietPreference;
   DateTime? completedAt;
 
-  // New target fields
-  double? targetAmount;
+  // --- NEW TARGET FIELDS ---
+  // (These replace desiredWeight, goalPace, and targetAmount)
+  double? targetAmountKg;
+  double? targetAmountLbs;
   String? targetUnit;
   int? targetTimeframe;
+  double? targetPaceKg; // This was saved in SetYourTargetPage
 
   // Computed properties for BMI calculation
   double get heightCm => (heightFeet * 12 + heightInches) * 2.54;
@@ -35,13 +39,15 @@ class OnboardingData {
     this.dateOfBirth,
     this.goal = '',
     this.accomplishment = '',
-    this.desiredWeight = 110.0,
-    this.goalPace = '',
     this.dietPreference = '',
     this.completedAt,
-    this.targetAmount,
+
+    // --- UPDATED CONSTRUCTOR ---
+    this.targetAmountKg,
+    this.targetAmountLbs,
     this.targetUnit,
     this.targetTimeframe,
+    this.targetPaceKg,
   });
 
   // Method to calculate BMI
@@ -136,7 +142,7 @@ class OnboardingData {
     };
   }
 
-  // Convert to Map for storage (keep DateTime objects for Firestore)
+  // --- UPDATED toMap ---
   Map<String, dynamic> toMap() {
     return {
       'gender': gender,
@@ -151,28 +157,31 @@ class OnboardingData {
       'dateOfBirth': dateOfBirth,
       'goal': goal,
       'accomplishment': accomplishment,
-      'desiredWeight': desiredWeight,
-      'goalPace': goalPace,
       'dietPreference': dietPreference,
       'completedAt': completedAt,
-      'targetAmount': targetAmount,
+
+      // New fields
+      'targetAmountKg': targetAmountKg,
+      'targetAmountLbs': targetAmountLbs,
       'targetUnit': targetUnit,
       'targetTimeframe': targetTimeframe,
+      'targetPaceKg': targetPaceKg,
     };
   }
 
-  // Create from Map
+  // --- UPDATED fromMap ---
   factory OnboardingData.fromMap(Map<String, dynamic> map) {
     DateTime? parseDateTime(dynamic value) {
       if (value == null) return null;
       if (value is DateTime) return value;
-      if (value is String) return DateTime.parse(value);
-      // Handle Firestore Timestamp
-      if (value.toString().contains('Timestamp')) {
-        // This is a Firestore Timestamp, we'll need to handle it differently
-        // For now, return null and let the service handle it
-        return null;
+
+      // FIX for Firestore Timestamp
+      if (value is Timestamp) {
+        return value.toDate();
       }
+
+      if (value is String) return DateTime.parse(value);
+
       return null;
     }
 
@@ -187,13 +196,15 @@ class OnboardingData {
       dateOfBirth: parseDateTime(map['dateOfBirth']),
       goal: map['goal'] ?? '',
       accomplishment: map['accomplishment'] ?? '',
-      desiredWeight: (map['desiredWeight'] ?? 110.0).toDouble(),
-      goalPace: map['goalPace'] ?? '',
       dietPreference: map['dietPreference'] ?? '',
       completedAt: parseDateTime(map['completedAt']),
-      targetAmount: map['targetAmount']?.toDouble(),
+
+      // New fields
+      targetAmountKg: map['targetAmountKg']?.toDouble(),
+      targetAmountLbs: map['targetAmountLbs']?.toDouble(),
       targetUnit: map['targetUnit'],
       targetTimeframe: map['targetTimeframe'],
+      targetPaceKg: map['targetPaceKg']?.toDouble(),
     );
   }
 }
