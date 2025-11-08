@@ -9,6 +9,7 @@ class RecipeService {
   static const String _collection = 'recipes';
 
   /// Create recipe
+  // *** MODIFIED ***: Added calories parameter
   static Future<String> createRecipe({
     required String title,
     required String description,
@@ -18,8 +19,11 @@ class RecipeService {
     required int prepTime,
     required int cookTime,
     required int servings,
-    required String category, // <-- ADDED CATEGORY PARAMETER
+    required String category,
+    required int calories, // *** NEW ***
     XFile? imageFile,
+    Map<String, String>? nutrition,
+    List<String>? tags,
   }) async {
     try {
       print('👨‍🍳 Creating recipe: $title');
@@ -29,14 +33,21 @@ class RecipeService {
       if (imageFile != null) {
         try {
           print('📤 Uploading to Cloudinary...');
+
+          final cloudinaryTags = {
+            'type': 'recipe',
+            'difficulty': difficulty.toLowerCase(),
+            'category': category.toLowerCase(),
+          };
+
+          if (tags != null && tags.isNotEmpty) {
+            cloudinaryTags['recipe_tags'] = tags.join(',');
+          }
+
           final uploadResult = await CloudinaryService.uploadImage(
             imageFile: imageFile,
             folder: 'recipes',
-            tags: {
-              'type': 'recipe',
-              'difficulty': difficulty.toLowerCase(),
-              'category': category.toLowerCase(), // <-- ADDED CATEGORY TAG FOR CLOUDINARY
-            },
+            tags: cloudinaryTags,
           );
           imageUrl = uploadResult.secureUrl;
           imagePublicId = uploadResult.publicId;
@@ -55,8 +66,8 @@ class RecipeService {
       if (instructions.isEmpty) {
         throw RecipeException('Cooking instructions are required.');
       }
-      // Assuming category validation is handled in the UI or guaranteed to be non-empty
 
+      // *** MODIFIED ***: Add calories to the Firestore document
       final recipeData = {
         'title': title.trim(),
         'description': description.trim(),
@@ -66,7 +77,8 @@ class RecipeService {
         'prepTime': prepTime,
         'cookTime': cookTime,
         'servings': servings,
-        'category': category, // <-- ADDED CATEGORY TO FIRESTORE DATA
+        'category': category,
+        'calories': calories, // *** NEW ***
         'imageUrl': imageUrl,
         'imagePublicId': imagePublicId,
         'createdAt': FieldValue.serverTimestamp(),
@@ -76,6 +88,8 @@ class RecipeService {
         'views': 0,
         'likes': 0,
         'rating': 0.0,
+        'nutrition': nutrition ?? {},
+        'tags': tags ?? [],
       };
 
       final docRef = await _firestore.collection(_collection).add(recipeData);

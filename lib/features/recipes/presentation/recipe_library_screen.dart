@@ -119,7 +119,7 @@ class _RecipeLibraryScreenState extends State<RecipeLibraryScreen> {
                         itemCount: recipes.length,
                         itemBuilder: (context, index) {
                           final recipe = recipes[index];
-                          // UPDATED: Using the new card layout
+                          // *** MODIFIED ***: Using the updated card
                           return _buildFullWidthRecipeCard(
                             context,
                             recipe,
@@ -243,11 +243,15 @@ class _RecipeLibraryScreenState extends State<RecipeLibraryScreen> {
   }
 
 
-  // UPDATED: New card layout
+  // ####################################################################
+  // ### *** MODIFIED WIDGET *** ###
+  // ####################################################################
+
+  // *** MODIFIED ***: Restored the image to show Image, Title, Time, and Calories.
   Widget _buildFullWidthRecipeCard(BuildContext context, Map<String, dynamic> recipe, bool isDarkTheme) {
-    final String? imageUrl = recipe['cardImageUrl'] ?? recipe['imageUrl'];
+    final String? imageUrl = recipe['cardImageUrl'] ?? recipe['imageUrl']; // <-- RESTORED
     final int totalTime = (recipe['prepTime'] ?? 0) + (recipe['cookTime'] ?? 0);
-    final String description = recipe['description'] ?? 'No description available. Tap to see more details.';
+    final int? calories = (recipe['calories'] as num?)?.toInt();
 
     return GestureDetector(
       onTap: () {
@@ -272,10 +276,11 @@ class _RecipeLibraryScreenState extends State<RecipeLibraryScreen> {
               ),
             ],
           ),
+          // *** MODIFIED ***: Child is now a Column containing the Stack (image) and Padding (text)
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Image Section (Unchanged)
+              // --- Image Section (RESTORED) ---
               Stack(
                 children: [
                   ClipRRect(
@@ -316,14 +321,15 @@ class _RecipeLibraryScreenState extends State<RecipeLibraryScreen> {
                   ),
                 ],
               ),
+              // --- End Image Section ---
 
-              // UPDATED: Info Section
+              // --- Info Section (Unchanged, just placed within the Column) ---
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // NEW: Row for Title and Time
+                    // Row for Title and Time
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,19 +360,29 @@ class _RecipeLibraryScreenState extends State<RecipeLibraryScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
 
-                    // Description
-                    Text(
-                      description,
-                      style: TextStyle(
-                        color: AppColors.textPrimary(isDarkTheme).withOpacity(0.8),
-                        fontSize: 14,
-                        height: 1.4,
+                    // Show Calories if they exist
+                    if (calories != null) ...[
+                      const SizedBox(height: 12), // Spacing
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.local_fire_department_outlined, // Calories icon
+                            color: AppColors.textSecondary(isDarkTheme),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            "$calories kcal",
+                            style: TextStyle(
+                              color: AppColors.textSecondary(isDarkTheme),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                    ],
                   ],
                 ),
               ),

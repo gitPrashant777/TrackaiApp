@@ -13,6 +13,7 @@ import 'package:intl/intl.dart';
 import '../homepage/log/daily_log_provider.dart';
 import '../homepage/log/food_log_entry.dart';
 import 'meal_detail_screen.dart';
+
 const Color kBackgroundColor = Colors.white;
 const Color kCardColor = Color(0xFFF8F9FA);
 const Color kCardColorDarker = Color(0xFFE9ECEF);
@@ -22,6 +23,7 @@ const Color kAccentColor = Color(0xFF131212);
 const Color kSuccessColor = Color(0xFF28A745);
 const Color kWarningColor = Color(0xFFFFC107);
 const Color kDangerColor = Color(0xFFDC3545);
+
 class Homescreen extends StatefulWidget {
   const Homescreen({super.key});
 
@@ -37,20 +39,21 @@ class _HomescreenState extends State<Homescreen> {
   bool _isLoadingGoals = true;
   String? _goalsError;
 
-  // Streak data
-  Map<String, bool> _streakData = {};
-  bool _isLoadingStreaks = true;
-  int _currentStreakCount = 0;
+  // --- REMOVED Streak data (now handled by homepage.dart) ---
+
+  // --- NEW: State for collapsible list ---
+  bool _showAllEntries = false;
+  // ------------------------------------
+
   DateTime? _accountCreationDate;
 
   @override
   void initState() {
     super.initState();
     _loadGoalsData();
-    _loadStreakData();
-    _recordDailyLogin();
+    // --- REMOVED: _loadStreakData(); ---
+    // --- REMOVED: _recordDailyLogin(); ---
     _loadAccountCreationDate();
-
   }
 
   Future<void> _loadGoalsData() async {
@@ -83,33 +86,14 @@ class _HomescreenState extends State<Homescreen> {
     }
   }
 
-  Future<void> _loadStreakData() async {
-    try {
-      setState(() => _isLoadingStreaks = true);
-      final streakData = await StreakService.getMonthStreakData(_currentDate);
-      final currentStreak = await StreakService.getCurrentStreakCount();
-      setState(() {
-        _streakData = streakData;
-        _currentStreakCount = currentStreak;
-        _isLoadingStreaks = false;
-      });
-    } catch (e) {
-      setState(() => _isLoadingStreaks = false);
-    }
-  }
-
-  Future<void> _recordDailyLogin() async {
-    try {
-      await StreakService.recordDailyLogin();
-      _loadStreakData();
-    } catch (_) {}
-  }
+  // --- REMOVED: _loadStreakData() method ---
+  // --- REMOVED: _recordDailyLogin() method ---
 
   void _navigateToWeek(int direction) {
     setState(() {
       _currentDate = _currentDate.add(Duration(days: 7 * direction));
     });
-    _loadStreakData();
+    // --- REMOVED: _loadStreakData(); ---
   }
 
   List<DateTime> _getWeekDates(DateTime date) {
@@ -210,12 +194,13 @@ class _HomescreenState extends State<Homescreen> {
                 ],
               );
             }, //
-          ),   // ✅ FIX: Added closing parenthesis for Consumer
-        ),     // ✅ FIX: Added closing parenthesis for SingleChildScrollView
-      ),       // ✅ FIX: Added closing parenthesis for SafeArea
-    );         // ✅ FIX: Added closing parenthesis and semicolon for Scaffold
+          ), // ✅ FIX: Added closing parenthesis for Consumer
+        ), // ✅ FIX: Added closing parenthesis for SingleChildScrollView
+      ), // ✅ FIX: Added closing parenthesis for SafeArea
+    ); // ✅ FIX: Added closing parenthesis and semicolon for Scaffold
   }
-  // NEW: Week Calendar with ALL dashed circles and today highlighted
+
+// NEW: Week Calendar with ALL dashed circles and today highlighted
   Widget _buildWeekCalendar(
       double screenWidth,
       double screenHeight,
@@ -277,7 +262,8 @@ class _HomescreenState extends State<Homescreen> {
   }
 
 // Main Content Page
-  Widget _buildMainContentPage(DailyLogProvider logProvider) { // <-- UPDATED
+  Widget _buildMainContentPage(DailyLogProvider logProvider) {
+    // <-- UPDATED
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
 
@@ -382,7 +368,8 @@ class _HomescreenState extends State<Homescreen> {
                 ],
               ),
               // UPDATED ICON CONTAINER
-              _buildProgressRing( // <-- UPDATED
+              _buildProgressRing(
+                // <-- UPDATED
                 progress: caloriesProgress,
                 size: screenWidth * 0.25,
                 icon: lucide.LucideIcons.flame,
@@ -423,7 +410,8 @@ class _HomescreenState extends State<Homescreen> {
                     ),
                     SizedBox(height: screenHeight * 0.015),
                     // UPDATED ICON CONTAINER
-                    _buildProgressRing( // <-- UPDATED
+                    _buildProgressRing(
+                      // <-- UPDATED
                       progress: proteinProgress,
                       size: screenWidth * 0.15,
                       icon: lucide.LucideIcons.zap,
@@ -460,7 +448,8 @@ class _HomescreenState extends State<Homescreen> {
                     ),
                     SizedBox(height: screenHeight * 0.015),
                     // UPDATED ICON CONTAINER
-                    _buildProgressRing( // <-- UPDATED
+                    _buildProgressRing(
+                      // <-- UPDATED
                       progress: carbsProgress,
                       size: screenWidth * 0.15,
                       icon: lucide.LucideIcons.wheat,
@@ -497,7 +486,8 @@ class _HomescreenState extends State<Homescreen> {
                     ),
                     SizedBox(height: screenHeight * 0.015),
                     // UPDATED ICON CONTAINER
-                    _buildProgressRing( // <-- UPDATED
+                    _buildProgressRing(
+                      // <-- UPDATED
                       progress: fatProgress,
                       size: screenWidth * 0.15,
                       icon: lucide.LucideIcons.droplet,
@@ -513,14 +503,16 @@ class _HomescreenState extends State<Homescreen> {
         // Fiber Section
         SizedBox(height: screenHeight * 0.025),
         // UPDATED Call
-        _buildFiberSection(fiberLeft.toInt(), fiberProgress, fiberLeft <= 0),      ],
+        _buildFiberSection(fiberLeft.toInt(), fiberProgress, fiberLeft <= 0),
+      ],
     );
   }
+
 // Fiber Widget
   Widget _buildFiberSection(
-      int fiberLeft,          // <-- Added
-      double fiberProgress,   // <-- Added
-      bool isTargetComplete,  // <-- Added
+      int fiberLeft, // <-- Added
+      double fiberProgress, // <-- Added
+      bool isTargetComplete, // <-- Added
       ) {
     final sw = MediaQuery.of(context).size.width;
     return Container(
@@ -596,37 +588,102 @@ class _HomescreenState extends State<Homescreen> {
       ),
     );
   }
-// In _HomescreenState
-  Widget _buildRecentlyEaten(DailyLogProvider logProvider, double sw, double sh) {
-    if (logProvider.entries.isEmpty) {
+
+  // --- WIDGET UPDATED ---
+  Widget _buildRecentlyEaten(
+      DailyLogProvider logProvider, double sw, double sh) {
+    final entries = logProvider.entries;
+
+    if (entries.isEmpty) {
       // Don't show anything if the log is empty
       return const SizedBox.shrink();
     }
+
+    // Determine how many items to show
+    final itemsToShow =
+    _showAllEntries ? entries.length : (entries.isNotEmpty ? 1 : 0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           "Recently Eaten",
-          style: TextStyle(color: Colors.black, fontSize: sw * 0.045, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: Colors.black,
+              fontSize: sw * 0.045,
+              fontWeight: FontWeight.w600),
         ),
         SizedBox(height: sh * 0.02),
         Container(
           decoration: _getCardDecoration(),
-          child: ListView.builder(
-            itemCount: logProvider.entries.length,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            itemBuilder: (context, index) {
-              final entry = logProvider.entries[index];
-              return _buildLogEntryCard(entry, sw, sh, index == logProvider.entries.length - 1);
-            },
+          child: Column(
+            // <-- Wrap ListView in Column
+            children: [
+              ListView.builder(
+                itemCount: itemsToShow, // Use calculated item count
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemBuilder: (context, index) {
+                  final entry = entries[index];
+
+                  // Determine if the border should be hidden
+                  bool hideBorder;
+                  if (_showAllEntries) {
+                    // If showing all, hide border only on the very last item
+                    hideBorder = (index == entries.length - 1);
+                  } else {
+                    // If not showing all
+                    if (entries.length > 1) {
+                      // And there are more entries, DON'T hide border
+                      // (so the "Show More" button has a line above it)
+                      hideBorder = false;
+                    } else {
+                      // It's the only entry, so hide the border
+                      hideBorder = true;
+                    }
+                  }
+
+                  return _buildLogEntryCard(entry, sw, sh, hideBorder);
+                },
+              ),
+
+              // "Show More" Button
+              if (entries.length > 1)
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _showAllEntries = !_showAllEntries;
+                    });
+                  },
+                  // Add splash effect
+                  borderRadius:
+                  const BorderRadius.vertical(bottom: Radius.circular(16)),
+                  child: Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(sw * 0.04),
+                    child: Text(
+                      _showAllEntries
+                          ? 'Show Less'
+                          : 'Show All (${entries.length - 1} more)',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.black, // Use theme color
+                        fontSize: sw * 0.038,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ],
     );
   }
+
+  // --- END OF UPDATED WIDGET ---
+
   Widget _buildProgressRing({
     required double progress,
     required double size,
@@ -668,7 +725,10 @@ class _HomescreenState extends State<Homescreen> {
     );
   }
   // ---
-  Widget _buildLogEntryCard(FoodLogEntry entry, double sw, double sh, bool isLast) {
+
+  // --- UPDATED: Parameter changed from 'isLast' to 'hideBorder' ---
+  Widget _buildLogEntryCard(
+      FoodLogEntry entry, double sw, double sh, bool hideBorder) {
     // --- WRAP with GestureDetector ---
     return GestureDetector(
       onTap: () {
@@ -679,14 +739,15 @@ class _HomescreenState extends State<Homescreen> {
             builder: (context) => MealDetailScreen(entry: entry), // Pass the entry
           ),
         );
-      // -----------------------------
-    },
+        // -----------------------------
+      },
       // Make sure the tap hits the whole area
       behavior: HitTestBehavior.opaque,
       child: Container(
         padding: EdgeInsets.all(sw * 0.04),
         decoration: BoxDecoration(
-          border: isLast
+          // Use hideBorder to control the border
+          border: hideBorder
               ? null
               : Border(
             bottom: BorderSide(color: Colors.grey[200]!, width: 1),
@@ -710,14 +771,16 @@ class _HomescreenState extends State<Homescreen> {
                 ),
                 Text(
                   DateFormat('hh:mm a').format(entry.timestamp), // e.g., 05:43 PM
-                  style: TextStyle(color: Colors.grey[600], fontSize: sw * 0.03),
+                  style:
+                  TextStyle(color: Colors.grey[600], fontSize: sw * 0.03),
                 ),
               ],
             ),
             SizedBox(height: sh * 0.01),
             Row(
               children: [
-                Icon(lucide.LucideIcons.flame, color: Colors.black, size: sw * 0.045),
+                Icon(lucide.LucideIcons.flame,
+                    color: Colors.black, size: sw * 0.045),
                 SizedBox(width: sw * 0.01),
                 Text(
                   '${entry.calories} calories',
@@ -762,11 +825,12 @@ class _HomescreenState extends State<Homescreen> {
       ],
     );
   }
+
   // AI Lab Section with FIXED EQUAL HEIGHT CARDS
   Widget _buildFullAILabSection() {
     final sw = MediaQuery.of(context).size.width;
     final sh = MediaQuery.of(context).size.height;
-    final cardHeight = sh * 0.16; // Fixed height for all cards
+    final cardHeight = sh * 0.17; // Fixed height for all cards
 
     return Container(
       padding: EdgeInsets.all(sw * 0.05),
@@ -776,12 +840,16 @@ class _HomescreenState extends State<Homescreen> {
         children: [
           Row(
             children: [
-              Icon(lucide.LucideIcons.sparkles, color: const Color(0xFF26A69A), size: sw * 0.06),
+              Icon(lucide.LucideIcons.sparkles,
+                  color: Colors.black, size: sw * 0.06),
               SizedBox(width: sw * 0.03),
               Expanded(
                 child: Text(
                   "AI Lab Quick Actions",
-                  style: TextStyle(color: Colors.black87, fontSize: sw * 0.045, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: sw * 0.045,
+                      fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -793,19 +861,40 @@ class _HomescreenState extends State<Homescreen> {
           ),
           SizedBox(height: sh * 0.025),
 
-          // Body Composition Analyzer - Full width
-          _aiLabCard("Body Composition Analyzer", "Get 18 detailed body composition metrics.",
-              lucide.LucideIcons.personStanding, "body-analyzer", cardHeight, sw, sh),
+          // --- MODIFIED CALL: Added isFullWidth: true ---
+          _aiLabCard(
+              "Body Composition Analyzer",
+              "Get 18 detailed body composition metrics.",
+              lucide.LucideIcons.personStanding,
+              "body-analyzer",
+              cardHeight,
+              sw,
+              sh,
+              isFullWidth: true), // <-- MODIFIED
           SizedBox(height: sh * 0.02),
 
           // Row 1
           Row(
             children: [
-              Expanded(child: _aiLabCard("AI Workout Planner", "Your gym companion.",
-                  lucide.LucideIcons.activity, "smart-gymkit", cardHeight, sw, sh)),
+              Expanded(
+                  child: _aiLabCard(
+                      "AI Workout Planner",
+                      "Your gym companion.",
+                      lucide.LucideIcons.activity,
+                      "smart-gymkit",
+                      cardHeight,
+                      sw,
+                      sh)),
               SizedBox(width: sw * 0.03),
-              Expanded(child: _aiLabCard("Calorie Burn Calc", "Estimate burned calories.",
-                  lucide.LucideIcons.flame, "calorie_calc", cardHeight, sw, sh)),
+              Expanded(
+                  child: _aiLabCard(
+                      "Calorie Burn Calc",
+                      "Estimate burned calories.",
+                      lucide.LucideIcons.flame,
+                      "calorie_calc",
+                      cardHeight,
+                      sw,
+                      sh)),
             ],
           ),
           SizedBox(height: sh * 0.02),
@@ -813,11 +902,25 @@ class _HomescreenState extends State<Homescreen> {
           // Row 2
           Row(
             children: [
-              Expanded(child: _aiLabCard("AI Meal Planner", "Get tailored meal plans.",
-                  lucide.LucideIcons.utensilsCrossed, "meal_planner", cardHeight, sw, sh)),
+              Expanded(
+                  child: _aiLabCard(
+                      "AI Meal Planner",
+                      "Get tailored meal plans.",
+                      lucide.LucideIcons.utensilsCrossed,
+                      "meal_planner",
+                      cardHeight,
+                      sw,
+                      sh)),
               SizedBox(width: sw * 0.03),
-              Expanded(child: _aiLabCard("AI Recipe Generator", "Create recipes instantly.",
-                  lucide.LucideIcons.chefHat, "recipe_generator", cardHeight, sw, sh)),
+              Expanded(
+                  child: _aiLabCard(
+                      "AI Recipe Generator",
+                      "Create recipes instantly.",
+                      lucide.LucideIcons.chefHat,
+                      "recipe_generator",
+                      cardHeight,
+                      sw,
+                      sh)),
             ],
           ),
           SizedBox(height: sh * 0.02),
@@ -825,11 +928,23 @@ class _HomescreenState extends State<Homescreen> {
           // Row 3 - Coming Soon
           Row(
             children: [
-              Expanded(child: _comingSoonCard("AI Nutrition Coach", "Smart nutrition guidance.",
-                  lucide.LucideIcons.brain, cardHeight, sw, sh)),
+              Expanded(
+                  child: _comingSoonCard(
+                      "AI Nutrition Coach",
+                      "Smart nutrition guidance.",
+                      lucide.LucideIcons.brain,
+                      cardHeight,
+                      sw,
+                      sh)),
               SizedBox(width: sw * 0.03),
-              Expanded(child: _comingSoonCard("AI Fitness Tracker", "Intelligent workout tracking.",
-                  lucide.LucideIcons.trophy, cardHeight, sw, sh)),
+              Expanded(
+                  child: _comingSoonCard(
+                      "AI Fitness Tracker",
+                      "Intelligent workout tracking.",
+                      lucide.LucideIcons.trophy,
+                      cardHeight,
+                      sw,
+                      sh)),
             ],
           ),
         ],
@@ -837,10 +952,14 @@ class _HomescreenState extends State<Homescreen> {
     );
   }
 
-  Widget _aiLabCard(String title, String desc, IconData icon, String action, double height, double sw, double sh) {
+  // --- WIDGET MODIFIED ---
+  Widget _aiLabCard(String title, String desc, IconData icon, String action,
+      double height, double sw, double sh,
+      {bool isFullWidth = false}) { // <-- MODIFIED
     return GestureDetector(
       onTap: () => _handleAILabAction(action),
       child: Container(
+        width: isFullWidth ? double.infinity : null, // <-- MODIFIED
         height: height,
         padding: EdgeInsets.all(sw * 0.04),
         decoration: BoxDecoration(
@@ -852,13 +971,40 @@ class _HomescreenState extends State<Homescreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(icon, color: Color(0xFF26A69A), size: sw * 0.08),
+            // --- MODIFIED: Icon wrapped in styled Container ---
+            Container(
+              padding: EdgeInsets.all(sw * 0.03),
+              decoration: BoxDecoration(
+                color: Colors.grey[200]!,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.grey[300]!,
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                icon,
+                color: Colors.black, // <-- MODIFIED
+                size: sw * 0.06, // <-- MODIFIED
+              ),
+            ),
+            // --- END MODIFICATION ---
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(color: Colors.black87, fontSize: sw * 0.038 ,fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(title,
+                    style: TextStyle(
+                        color: Colors.black87,
+                        fontSize: sw * 0.038,
+                        fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
                 SizedBox(height: sh * 0.003),
-                Text(desc, style: TextStyle(color: Colors.black54, fontSize: sw * 0.03), maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(desc,
+                    style:
+                    TextStyle(color: Colors.black54, fontSize: sw * 0.03),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
               ],
             ),
           ],
@@ -866,6 +1012,7 @@ class _HomescreenState extends State<Homescreen> {
       ),
     );
   }
+
 // --- ADD THIS HELPER WIDGET ---
 // (Adapted from nutrition_scanner.dart)
   Widget _buildNutrientCard(
@@ -963,7 +1110,8 @@ class _HomescreenState extends State<Homescreen> {
                   // Header (Adjusted for light theme)
                   Row(
                     children: [
-                      Icon(Icons.restaurant_menu, color: Colors.grey[700], size: sw * 0.06), // Darker icon
+                      Icon(Icons.restaurant_menu,
+                          color: Colors.grey[700], size: sw * 0.06), // Darker icon
                       SizedBox(width: sw * 0.02),
                       Text(
                         'Meal Details',
@@ -986,20 +1134,23 @@ class _HomescreenState extends State<Homescreen> {
                   ),
                   SizedBox(height: sh * 0.03),
                   if (entry.imagePath != null) ...[
-                    Center( // Center the image
-                      child: ClipRRect( // Add rounded corners
+                    Center(
+                      // Center the image
+                      child: ClipRRect(
+                        // Add rounded corners
                         borderRadius: BorderRadius.circular(12.0),
                         child: Image.file(
                           File(entry.imagePath!), // Create a File object from the path
-                          height: sh * 0.2,       // Set a fixed height
+                          height: sh * 0.2, // Set a fixed height
                           width: double.infinity, // Take full width
-                          fit: BoxFit.cover,      // Cover the area
+                          fit: BoxFit.cover, // Cover the area
                           // Add error handling for missing files
                           errorBuilder: (context, error, stackTrace) {
                             return Container(
                               height: sh * 0.2,
                               color: Colors.grey[300],
-                              child: const Center(child: Text('Image not found')),
+                              child:
+                              const Center(child: Text('Image not found')),
                             );
                           },
                         ),
@@ -1012,7 +1163,8 @@ class _HomescreenState extends State<Homescreen> {
                   Center(
                     child: Column(
                       children: [
-                        Icon(lucide.LucideIcons.flame, color: Colors.cyan, size: sw * 0.07),
+                        Icon(lucide.LucideIcons.flame,
+                            color: Colors.cyan, size: sw * 0.07),
                         SizedBox(height: sh * 0.01),
                         Text(
                           '${entry.calories}',
@@ -1038,14 +1190,18 @@ class _HomescreenState extends State<Homescreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: _buildNutrientCard( // Ensure this uses light theme styles
-                          'Protein', '${entry.protein}','g', lucide.LucideIcons.zap, Colors.amber,
+                        child: _buildNutrientCard(
+                          // Ensure this uses light theme styles
+                          'Protein', '${entry.protein}', 'g',
+                          lucide.LucideIcons.zap, Colors.amber,
                         ),
                       ),
                       SizedBox(width: sw * 0.03),
                       Expanded(
-                        child: _buildNutrientCard( // Ensure this uses light theme styles
-                          'Carbs', '${entry.carbs}','g', lucide.LucideIcons.wheat, Colors.green,
+                        child: _buildNutrientCard(
+                          // Ensure this uses light theme styles
+                          'Carbs', '${entry.carbs}', 'g',
+                          lucide.LucideIcons.wheat, Colors.green,
                         ),
                       ),
                     ],
@@ -1054,14 +1210,18 @@ class _HomescreenState extends State<Homescreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: _buildNutrientCard( // Ensure this uses light theme styles
-                          'Fat', '${entry.fat}', 'g', lucide.LucideIcons.droplet, Colors.blue,
+                        child: _buildNutrientCard(
+                          // Ensure this uses light theme styles
+                          'Fat', '${entry.fat}', 'g', lucide.LucideIcons.droplet,
+                          Colors.blue,
                         ),
                       ),
                       SizedBox(width: sw * 0.03),
                       Expanded(
-                        child: _buildNutrientCard( // Ensure this uses light theme styles
-                          'Fiber', '${entry.fiber}', 'g', lucide.LucideIcons.leaf, Colors.orange,
+                        child: _buildNutrientCard(
+                          // Ensure this uses light theme styles
+                          'Fiber', '${entry.fiber}', 'g',
+                          lucide.LucideIcons.leaf, Colors.orange,
                         ),
                       ),
                     ],
@@ -1072,7 +1232,8 @@ class _HomescreenState extends State<Homescreen> {
                   if (entry.healthScore != null) ...[
                     Container(
                       padding: EdgeInsets.all(sw * 0.04),
-                      decoration: BoxDecoration( // Inner card decoration
+                      decoration: BoxDecoration(
+                        // Inner card decoration
                         color: const Color(0xFFE9ECEF), // Slightly darker bg
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1082,20 +1243,19 @@ class _HomescreenState extends State<Homescreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                  children: [
-                                    Icon(Icons.favorite, color: Colors.red[400], size: sw * 0.05),
-                                    SizedBox(width: sw * 0.02),
-                                    Text(
-                                      'Health Score',
-                                      style: TextStyle(
-                                        fontSize: sw * 0.045,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.black87,
-                                      ),
-                                    ),
-                                  ]
-                              ),
+                              Row(children: [
+                                Icon(Icons.favorite,
+                                    color: Colors.red[400], size: sw * 0.05),
+                                SizedBox(width: sw * 0.02),
+                                Text(
+                                  'Health Score',
+                                  style: TextStyle(
+                                    fontSize: sw * 0.045,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ]),
                               Text(
                                 '${entry.healthScore}/10',
                                 style: TextStyle(
@@ -1117,7 +1277,8 @@ class _HomescreenState extends State<Homescreen> {
                               minHeight: 10,
                             ),
                           ),
-                          if (entry.healthDescription != null && entry.healthDescription!.isNotEmpty) ...[
+                          if (entry.healthDescription != null &&
+                              entry.healthDescription!.isNotEmpty) ...[
                             SizedBox(height: sh * 0.015),
                             Text(
                               entry.healthDescription!,
@@ -1140,13 +1301,16 @@ class _HomescreenState extends State<Homescreen> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, color: Colors.white), // White icon on black button
-                      label: const Text(
-                          'Close',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold) // White text
+                      icon: const Icon(Icons.close,
+                          color: Colors.white), // White icon on black button
+                      label: const Text('Close',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold) // White text
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.black87, // Dark button for contrast
+                        backgroundColor:
+                        Colors.black87, // Dark button for contrast
                         padding: EdgeInsets.symmetric(vertical: sh * 0.018),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -1163,6 +1327,7 @@ class _HomescreenState extends State<Homescreen> {
       },
     );
   }
+
   // Add this helper inside _HomescreenState
   Color _getHealthScoreColor(int score) {
     // Using the colors defined in nutrition_scanner.dart
@@ -1174,8 +1339,11 @@ class _HomescreenState extends State<Homescreen> {
     if (score >= 5) return kWarningColor;
     return kDangerColor;
   }
+
 // --- END OF METHOD ---
-  Widget _comingSoonCard(String title, String desc, IconData icon, double height, double sw, double sh) {
+  // --- WIDGET MODIFIED ---
+  Widget _comingSoonCard(
+      String title, String desc, IconData icon, double height, double sw, double sh) {
     return GestureDetector(
       onTap: () => _showSnackBar('Feature coming soon!'),
       child: Container(
@@ -1190,23 +1358,58 @@ class _HomescreenState extends State<Homescreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            // --- MODIFIED: Icon wrapped and "SOON" badge moved ---
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(icon, color: Colors.grey[500], size: sw * 0.08),
-                SizedBox(width: sw * 0.02),
                 Container(
-                  padding: EdgeInsets.symmetric(horizontal: sw * 0.02, vertical: sw * 0.01),
-                  decoration: BoxDecoration(color: Colors.orange[100], borderRadius: BorderRadius.circular(12)),
-                  child: Text("SOON", style: TextStyle(color: Colors.orange[700], fontSize: sw * 0.028, fontWeight: FontWeight.bold)),
+                  padding: EdgeInsets.all(sw * 0.03),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200]!,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Colors.grey[300]!,
+                      width: 1,
+                    ),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: Colors.grey[500], // Kept grey for "disabled"
+                    size: sw * 0.06, // Matched size
+                  ),
+                ),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: sw * 0.02, vertical: sw * 0.01),
+                  decoration: BoxDecoration(
+                      color: Colors.orange[100],
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Text("SOON",
+                      style: TextStyle(
+                          color: Colors.orange[700],
+                          fontSize: sw * 0.028,
+                          fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
+            // --- END MODIFICATION ---
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(color: Colors.grey[600], fontSize: sw * 0.038, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(title,
+                    style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: sw * 0.038,
+                        fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
                 SizedBox(height: sh * 0.003),
-                Text(desc, style: TextStyle(color: Colors.grey[500], fontSize: sw * 0.03), maxLines: 2, overflow: TextOverflow.ellipsis),
+                Text(desc,
+                    style:
+                    TextStyle(color: Colors.grey[500], fontSize: sw * 0.03),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis),
               ],
             ),
           ],
@@ -1227,9 +1430,14 @@ class _HomescreenState extends State<Homescreen> {
         children: [
           Row(
             children: [
-              Icon(lucide.LucideIcons.lightbulb, color: Colors.amber, size: sw * 0.06),
+              Icon(lucide.LucideIcons.lightbulb,
+                  color: Colors.amber, size: sw * 0.06),
               SizedBox(width: sw * 0.03),
-              Text("Wellness Tips", style: TextStyle(color: Colors.black87, fontSize: sw * 0.045, fontWeight: FontWeight.w600)),
+              Text("Wellness Tips",
+                  style: TextStyle(
+                      color: Colors.black87,
+                      fontSize: sw * 0.045,
+                      fontWeight: FontWeight.w600)),
             ],
           ),
           SizedBox(height: sh * 0.02),
@@ -1255,7 +1463,10 @@ class _HomescreenState extends State<Homescreen> {
         children: [
           Icon(lucide.LucideIcons.check, size: sw * 0.04, color: Colors.green),
           SizedBox(width: sw * 0.03),
-          Expanded(child: Text(text, style: TextStyle(color: Colors.black54, fontSize: sw * 0.033))),
+          Expanded(
+              child: Text(text,
+                  style:
+                  TextStyle(color: Colors.black54, fontSize: sw * 0.033))),
         ],
       ),
     );

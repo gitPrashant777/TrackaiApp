@@ -2325,16 +2325,8 @@ class _ProgressOverviewPageState extends State<ProgressOverviewPage> {
             color: AppColors.textSecondary(isDark),
           ),
         ),
-        Text(
-          // Show total grams
-          totalValue > 0 ? '${totalValue.toInt()}g' : '',
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary(isDark),
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
+
+
       ],
     );
   }

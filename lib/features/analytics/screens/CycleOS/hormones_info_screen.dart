@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
-
 class HormonesInfoScreen extends StatelessWidget {
-  const HormonesInfoScreen({Key? key}) : super(key: key);
+  // --- NEW: Added currentPhase ---
+  final String currentPhase;
 
-  // --- NEW: Define colors and styles for convenience ---
+  const HormonesInfoScreen({
+    Key? key,
+    required this.currentPhase, // Make it required
+  }) : super(key: key);
+  // ------------------------------
+
+  // --- Define colors and styles ---
   static const Color _greenColor = Color(0xFF63C68B);
   static const Color _blueColor = Color(0xFF67A5E1);
   static const Color _yellowColor = Color(0xFFE5B942);
   static const Color _redColor = Color(0xFFE86C6B);
-  // --- ADDED a color for Luteal and PMS ---
-  static const Color _orangeColor = Color(0xFFFFA726); // Matches Colors.orange.shade700
-  static const Color _pinkColor = Color(0xFFEC407A); // Matches Colors.pink.shade300
+  static const Color _orangeColor = Color(0xFFFFA726);
+  static const Color _pinkColor = Color(0xFFEC407A);
 
   static const TextStyle _defaultStyle = TextStyle(
     fontSize: 15,
@@ -21,15 +26,46 @@ class HormonesInfoScreen extends StatelessWidget {
     fontSize: 15,
     height: 1.5,
     color: Colors.black87,
-    fontWeight: FontWeight.w600, // Using w600 for a slightly softer bold
+    fontWeight: FontWeight.w600,
   );
-  // ---------------------------------------------------
+  // --------------------------------
+
+  // --- NEW: Helper to get color from phase name ---
+  Color _getPhaseColor(String phase) {
+    if (phase.contains('Period') || phase.contains('Menstrual')) return _redColor;
+    if (phase.contains('Follicular')) return _blueColor;
+    if (phase.contains('Ovulation') || phase.contains('Fertile')) return _greenColor; // Ovulation is green in this file
+    if (phase.contains('Luteal')) return _orangeColor;
+    if (phase.contains('PMS')) return _pinkColor;
+    return Colors.black87; // Default
+  }
+
+  // --- NEW: Helper to get the short phase description ---
+  String _getPhaseDescription(String phase) {
+    if (phase.contains('Period') || phase.contains('Menstrual')) {
+      return "The start of your cycle, characterized by menstrual bleeding. Hormone levels are low. You might feel tired or have low energy.";
+    }
+    if (phase.contains('Follicular')) {
+      return "After your period, estrogen starts to rise, boosting energy and mood. Your body prepares for ovulation.";
+    }
+    // This will catch "Ovulation Day", "Ovulation Phase", and "Fertile Phase"
+    if (phase.contains('Ovulation') || phase.contains('Fertile')) {
+      return "This is your fertile window. Estrogen and LH peak, leading to high energy and your highest fertility.";
+    }
+    if (phase.contains('Luteal')) {
+      return "After ovulation, progesterone rises. You might experience PMS symptoms as your body prepares for the next period.";
+    }
+    if (phase.contains('PMS')) {
+      return "Progesterone and estrogen fall, which can trigger PMS symptoms like mood swings, bloating, and fatigue before your period starts.";
+    }
+    return "Tracking your cycle helps us learn its unique rhythm."; // Default
+  }
+  // ---------------------------------------------
 
   // Main build method
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // --- MODIFIED: Background set to white ---
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -39,14 +75,32 @@ class HormonesInfoScreen extends StatelessWidget {
           style: TextStyle(
               color: Colors.black, fontSize: 18, fontWeight: FontWeight.w700),
         ),
+        // --- MODIFIED: Changed close icon to a back arrow ---
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Color(0xFFE91E63)),
+          icon: const Icon(Icons.arrow_back, color: Color(0xFFE91E63)),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        // --------------------------------------------------
       ),
+      // --- MODIFIED: ListView order changed ---
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
+          // *** NEW: Added the label you requested ***
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Text(
+              'This is the current phase:',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey[700],
+              ),
+            ),
+          ),
+          // *****************************************
+          _buildCurrentPhaseDisplay(), // MOVED TO TOP
+          const SizedBox(height: 24),
           _buildHormonesSection(),
           const SizedBox(height: 24),
           _buildPhasesSection(context), // This is now modified
@@ -55,24 +109,62 @@ class HormonesInfoScreen extends StatelessWidget {
     );
   }
 
-  // --- Hormones Section (MODIFIED with colors) ---
+  // --- NEW WIDGET: The dark display box ---
+  Widget _buildCurrentPhaseDisplay() {
+    return Container(
+      // No margin, padding is handled by the ListView
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        // --- MODIFIED: Color changed to grey[100] ---
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            currentPhase,
+            style: TextStyle(
+              color: _getPhaseColor(currentPhase), // Use the dynamic color
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _getPhaseDescription(currentPhase), // Get the dynamic description
+            style: TextStyle(
+              // --- MODIFIED: Text color changed to be readable ---
+              color: Colors.grey[800],
+              fontSize: 15,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  // ------------------------------------------
+
   Widget _buildHormonesSection() {
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      clipBehavior: Clip.antiAlias, // This will clip the image to the corners
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- NEW IMAGE ADDED ---
+          // --- REMOVED: "Your current phase is..." RichText was here ---
+
+          // --- MODIFIED: Image is now the first item in this card ---
           Image.asset(
-            'assets/images/gp.jpg', // Using the path you provided earlier
+            'assets/images/gp.jpg',
             width: double.infinity,
-            height: 180, // You can adjust this height
-            fit: BoxFit.cover, // Ensures the image covers the area
-            semanticLabel: 'Graph of hormone cycles', // Good for accessibility
+            // height: 180, // Removed fixed height
+            fit: BoxFit.fitWidth, // Changed from cover to fitWidth
+            semanticLabel: 'Graph of hormone cycles',
           ),
-          // --- END NEW IMAGE ---
+          // -------------------------------------
 
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -82,7 +174,6 @@ class HormonesInfoScreen extends StatelessWidget {
             ),
           ),
           ExpansionTile(
-            // --- MODIFIED: Use predefined color ---
             leading:
             const CircleAvatar(backgroundColor: _yellowColor, radius: 10),
             title: const Text('FSH (Follicle-Stimulating Hormone)'),
@@ -92,7 +183,6 @@ class HormonesInfoScreen extends StatelessWidget {
             ],
           ),
           ExpansionTile(
-            // --- MODIFIED: Use predefined color ---
             leading: const CircleAvatar(backgroundColor: _redColor, radius: 10),
             title: const Text('LH (Luteinizing Hormone)'),
             children: [
@@ -101,7 +191,6 @@ class HormonesInfoScreen extends StatelessWidget {
             ],
           ),
           ExpansionTile(
-            // --- MODIFIED: Use predefined color ---
             leading:
             const CircleAvatar(backgroundColor: _greenColor, radius: 10),
             title: const Text('PG (Progesterone)'),
@@ -111,7 +200,6 @@ class HormonesInfoScreen extends StatelessWidget {
             ],
           ),
           ExpansionTile(
-            // --- MODIFIED: Use predefined color ---
             leading: const CircleAvatar(backgroundColor: _blueColor, radius: 10),
             title: const Text('E2 (Estrogen/Estradiol)'),
             children: [
@@ -124,7 +212,6 @@ class HormonesInfoScreen extends StatelessWidget {
     );
   }
 
-  // --- MODIFIED: Phases Section (Enhanced with colors) ---
   Widget _buildPhasesSection(BuildContext context) {
     return Card(
       elevation: 0,
@@ -143,8 +230,11 @@ class HormonesInfoScreen extends StatelessWidget {
                   color: Colors.black87),
             ),
           ),
-          // --- Tile for Period (Enhanced) ---
+          // --- MOVED: Current phase was removed from here ---
+
+          // --- MODIFIED: Added initiallyExpanded ---
           ExpansionTile(
+            initiallyExpanded: currentPhase.contains('Period') || currentPhase.contains('Menstrual'), // Auto-expands
             leading: const Icon(Icons.water_drop_outlined, color: _redColor),
             title: const Text(
               'Period',
@@ -192,8 +282,9 @@ class HormonesInfoScreen extends StatelessWidget {
               ])
             ],
           ),
-          // --- Tile for Follicular Phase (Enhanced) ---
+          // --- MODIFIED: Added initiallyExpanded ---
           ExpansionTile(
+            initiallyExpanded: currentPhase.contains('Follicular'), // Auto-expands
             leading: const Icon(Icons.star_border, color: _blueColor),
             title: const Text(
               'Follicular Phase',
@@ -235,8 +326,9 @@ class HormonesInfoScreen extends StatelessWidget {
               ])
             ],
           ),
-          // --- Tile for Ovulation (Enhanced) ---
+          // --- MODIFIED: Added initiallyExpanded ---
           ExpansionTile(
+            initiallyExpanded: currentPhase.contains('Ovulation') || currentPhase.contains('Fertile'), // Auto-expands
             leading: const Icon(Icons.star_outline_rounded, color: _greenColor),
             title: const Text(
               'Ovulation',
@@ -334,8 +426,9 @@ class HormonesInfoScreen extends StatelessWidget {
               ])
             ],
           ),
-          // --- Tile for Luteal Phase (Enhanced) ---
+          // --- MODIFIED: Added initiallyExpanded ---
           ExpansionTile(
+            initiallyExpanded: currentPhase.contains('Luteal'), // Auto-expands
             leading: const Icon(Icons.nightlight_round, color: _orangeColor),
             title: const Text(
               'Luteal Phase',
@@ -391,8 +484,9 @@ class HormonesInfoScreen extends StatelessWidget {
               ])
             ],
           ),
-          // --- Tile for PMS (Enhanced) ---
+          // --- MODIFIED: Added initiallyExpanded ---
           ExpansionTile(
+            initiallyExpanded: currentPhase.contains('PMS'), // Auto-expands
             leading:
             const Icon(Icons.self_improvement_outlined, color: _pinkColor),
             title: const Text(
@@ -451,7 +545,6 @@ class HormonesInfoScreen extends StatelessWidget {
 
   // --- Helper Widgets for Content ---
 
-  /// Helper for basic hormone text
   Widget _buildExpansionContent(String text) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -462,7 +555,6 @@ class HormonesInfoScreen extends StatelessWidget {
     );
   }
 
-  /// NEW: Helper for the content inside phase tiles
   Widget _buildPhaseContent(List<Widget> children) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -493,7 +585,6 @@ class HormonesInfoScreen extends StatelessWidget {
     );
   }
 
-  /// NEW: More flexible RichText builder
   Widget _buildRichText(List<TextSpan> children) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),

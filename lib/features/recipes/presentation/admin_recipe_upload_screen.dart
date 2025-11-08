@@ -18,21 +18,33 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _ingredientsController = TextEditingController();
+  // final _ingredientsController = TextEditingController(); // *** REMOVED ***
   final _instructionsController = TextEditingController();
   final _prepTimeController = TextEditingController();
   final _cookTimeController = TextEditingController();
   final _servingsController = TextEditingController();
 
+  // *** NEW ***: Controller for Calories
+  final _caloriesController = TextEditingController();
+
+  // *** NEW ***: Controllers for dynamic Ingredients
+  final List<TextEditingController> _ingredientControllers = [];
+
+  // *** NEW ***: Controller for Tags input
+  final _tagInputController = TextEditingController();
+  final List<String> _tags = [];
+
+  // *** NEW ***: List to hold dynamic controllers for nutrition facts
+  final List<MapEntry<TextEditingController, TextEditingController>>
+  _nutritionControllers = [];
+
   String _selectedDifficulty = 'Easy';
-  // 1. New State Variable for Category
   String _selectedCategory = 'Main Course';
   XFile? _selectedImage;
   bool _isUploading = false;
   double _uploadProgress = 0.0;
 
   final List<String> _difficulties = ['Easy', 'Medium', 'Hard'];
-  // 2. List of Categories
   final List<String> _categories = [
     'Appetizers',
     'Main Course',
@@ -49,15 +61,76 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _ingredientsController.dispose();
+    // _ingredientsController.dispose(); // *** REMOVED ***
     _instructionsController.dispose();
     _prepTimeController.dispose();
     _cookTimeController.dispose();
     _servingsController.dispose();
+
+    // *** NEW ***: Dispose new controllers
+    _caloriesController.dispose();
+    _tagInputController.dispose();
+
+    for (var controller in _ingredientControllers) {
+      controller.dispose();
+    }
+    for (var entry in _nutritionControllers) {
+      entry.key.dispose();
+      entry.value.dispose();
+    }
     super.dispose();
   }
 
+  // *** NEW ***: Helper functions for Ingredients
+  void _addIngredientField() {
+    setState(() {
+      _ingredientControllers.add(TextEditingController());
+    });
+  }
+
+  void _removeIngredientField(int index) {
+    setState(() {
+      _ingredientControllers[index].dispose();
+      _ingredientControllers.removeAt(index);
+    });
+  }
+
+  // *** NEW ***: Helper functions for Nutrition
+  void _addNutritionField() {
+    setState(() {
+      _nutritionControllers.add(
+        MapEntry(TextEditingController(), TextEditingController()),
+      );
+    });
+  }
+
+  void _removeNutritionField(int index) {
+    setState(() {
+      _nutritionControllers[index].key.dispose();
+      _nutritionControllers[index].value.dispose();
+      _nutritionControllers.removeAt(index);
+    });
+  }
+
+  // *** NEW ***: Helper functions for Tags
+  void _addTag() {
+    final tag = _tagInputController.text.trim();
+    if (tag.isNotEmpty && !_tags.contains(tag)) {
+      setState(() {
+        _tags.add(tag);
+      });
+      _tagInputController.clear();
+    }
+  }
+
+  void _removeTag(String tag) {
+    setState(() {
+      _tags.remove(tag);
+    });
+  }
+
   Future<void> _pickImage() async {
+    // ... (This function is unchanged) ...
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -91,9 +164,10 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
     try {
       setState(() => _uploadProgress = 0.2);
 
-      final ingredients = _ingredientsController.text
-          .split('\n')
-          .where((ingredient) => ingredient.trim().isNotEmpty)
+      // *** MODIFIED ***: Process dynamic ingredients
+      final ingredients = _ingredientControllers
+          .map((controller) => controller.text.trim())
+          .where((ingredient) => ingredient.isNotEmpty)
           .toList();
 
       final instructions = _instructionsController.text
@@ -101,9 +175,26 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
           .where((instruction) => instruction.trim().isNotEmpty)
           .toList();
 
+      // *** MODIFIED ***: Process nutrition data
+      final Map<String, String> nutritionFacts = {};
+      for (var entry in _nutritionControllers) {
+        final name = entry.key.text.trim();
+        final value = entry.value.text.trim();
+        if (name.isNotEmpty && value.isNotEmpty) {
+          nutritionFacts[name] = value;
+        }
+      }
+
+      // *** NEW ***: Get calories
+      final calories = int.tryParse(_caloriesController.text) ?? 0;
+
+      // *** MODIFIED ***: Tags are already a list, no processing needed
+      // final List<String> tags = _tags; // (Just use _tags directly)
+
       setState(() => _uploadProgress = 0.4);
 
-      // Create recipe
+      // *** MODIFIED ***: Add calories and pass _tags list
+      // !! IMPORTANT: You must update RecipeService.createRecipe!
       final recipeId = await RecipeService.createRecipe(
         title: _titleController.text,
         description: _descriptionController.text,
@@ -114,8 +205,10 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
         cookTime: int.tryParse(_cookTimeController.text) ?? 0,
         servings: int.tryParse(_servingsController.text) ?? 1,
         imageFile: _selectedImage,
-        // 4. Pass the selected category to the service
         category: _selectedCategory,
+        nutrition: nutritionFacts,
+        tags: _tags, // *** MODIFIED ***
+        calories: calories, // *** NEW ***
       );
 
       setState(() => _uploadProgress = 1.0);
@@ -135,15 +228,31 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
   void _clearForm() {
     _titleController.clear();
     _descriptionController.clear();
-    _ingredientsController.clear();
+    // _ingredientsController.clear(); // *** REMOVED ***
     _instructionsController.clear();
     _prepTimeController.clear();
     _cookTimeController.clear();
     _servingsController.clear();
+
+    // *** NEW ***: Clear new fields and reset state
+    _caloriesController.clear();
+    _tagInputController.clear();
+    _tags.clear();
+
+    for (var controller in _ingredientControllers) {
+      controller.dispose();
+    }
+    _ingredientControllers.clear();
+
+    for (var entry in _nutritionControllers) {
+      entry.key.dispose();
+      entry.value.dispose();
+    }
+    _nutritionControllers.clear();
+
     setState(() {
       _selectedImage = null;
       _selectedDifficulty = 'Easy';
-      // 5. Reset the selected category
       _selectedCategory = 'Main Course';
     });
   }
@@ -154,11 +263,11 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
       builder: (context, themeProvider, child) {
         final isDarkTheme = themeProvider.isDarkMode;
         final screenWidth = MediaQuery.of(context).size.width;
-        // final screenHeight = MediaQuery.of(context).size.height; // Not strictly needed
 
         return Scaffold(
           backgroundColor: AppColors.background(isDarkTheme),
           appBar: AppBar(
+            // ... (Your AppBar code is unchanged) ...
             backgroundColor: Colors.transparent,
             elevation: 0,
             flexibleSpace: Container(
@@ -183,10 +292,12 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [Colors.orange, Colors.orange.shade600]),
+                    gradient: LinearGradient(
+                        colors: [Colors.orange, Colors.orange.shade600]),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.upload, color: Colors.white, size: 18),
+                  child:
+                  const Icon(Icons.upload, color: Colors.white, size: 18),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -212,7 +323,8 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [Colors.green, Colors.green.shade600]),
+                  gradient: LinearGradient(
+                      colors: [Colors.green, Colors.green.shade600]),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
@@ -248,35 +360,41 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
                 key: _formKey,
                 child: Column(
                   children: [
-                    // Compact Header Card
                     _buildHeaderCard(isDarkTheme, screenWidth),
                     const SizedBox(height: 16),
 
-                    // Upload Progress (compact)
-                    if (_isUploading) _buildUploadProgress(isDarkTheme, screenWidth),
+                    if (_isUploading)
+                      _buildUploadProgress(isDarkTheme, screenWidth),
 
-                    // Image Upload Section (optimized height)
                     _buildImageUpload(isDarkTheme, screenWidth),
                     const SizedBox(height: 16),
 
-                    // Basic Info (compact)
                     _buildBasicInfo(isDarkTheme, screenWidth),
                     const SizedBox(height: 16),
 
-                    // *** 3. NEW CATEGORY SELECTION SECTION ***
                     _buildCategorySelection(isDarkTheme, screenWidth),
                     const SizedBox(height: 16),
-                    // ***************************************
 
-                    // Recipe Details (streamlined)
+                    // *** MODIFIED ***: Calories field added inside
                     _buildRecipeDetails(isDarkTheme, screenWidth),
                     const SizedBox(height: 16),
 
-                    // Ingredients & Instructions (optimized)
-                    _buildIngredientsInstructions(isDarkTheme, screenWidth),
+                    // *** MODIFIED ***: Now for dynamic ingredients
+                    _buildIngredientsSection(isDarkTheme, screenWidth),
+                    const SizedBox(height: 16),
+
+                    // *** NEW ***: Add Nutrition Section
+                    _buildNutritionSection(isDarkTheme, screenWidth),
+                    const SizedBox(height: 16),
+
+                    // *** MODIFIED ***: Now for chip-based tags
+                    _buildTagsSection(isDarkTheme, screenWidth),
+                    const SizedBox(height: 16),
+
+                    // *** MODIFIED ***: Renamed to only handle instructions
+                    _buildInstructionsSection(isDarkTheme, screenWidth),
                     const SizedBox(height: 24),
 
-                    // Upload Button (normal height)
                     _buildUploadButton(isDarkTheme, screenWidth),
                   ],
                 ),
@@ -288,8 +406,528 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
     );
   }
 
-  // *** NEW WIDGET FOR CATEGORY SELECTION ***
+  // *** REWRITTEN ***: Widget for dynamic ingredients
+  Widget _buildIngredientsSection(bool isDarkTheme, double screenWidth) {
+    return Container(
+      padding: EdgeInsets.all(screenWidth < 400 ? 12 : 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.cardBackground(isDarkTheme),
+            AppColors.cardBackground(isDarkTheme).withOpacity(0.8),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Ingredients',
+                style: TextStyle(
+                  color: AppColors.textPrimary(isDarkTheme),
+                  fontSize: screenWidth < 400 ? 14 : 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.add_circle, size: 18),
+                label: const Text('Add'),
+                onPressed: _addIngredientField,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          if (_ingredientControllers.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  'Click "Add" to enter ingredients.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary(isDarkTheme),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _ingredientControllers.length,
+              itemBuilder: (context, index) {
+                return _buildIngredientRow(
+                  index,
+                  _ingredientControllers[index],
+                  isDarkTheme,
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // *** NEW ***: Helper for a single ingredient row
+  Widget _buildIngredientRow(
+      int index,
+      TextEditingController controller,
+      bool isDarkTheme,
+      ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextFormField(
+              controller: controller,
+              decoration: InputDecoration(
+                labelText: 'Ingredient ${index + 1}',
+                hintText: 'e.g., 2 cups Flour',
+                border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+              ),
+              style: const TextStyle(fontSize: 14),
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Ingredient cannot be empty';
+                }
+                return null;
+              },
+            ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            icon: Icon(Icons.remove_circle, color: Colors.red.shade400, size: 20),
+            onPressed: () => _removeIngredientField(index),
+            tooltip: 'Remove',
+          ),
+        ],
+      ),
+    );
+  }
+
+  // *** NEW ***: Widget for dynamic nutrition fields
+  Widget _buildNutritionSection(bool isDarkTheme, double screenWidth) {
+    return Container(
+      padding: EdgeInsets.all(screenWidth < 400 ? 12 : 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.cardBackground(isDarkTheme),
+            AppColors.cardBackground(isDarkTheme).withOpacity(0.8),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Nutrition Facts (Optional)',
+                style: TextStyle(
+                  color: AppColors.textPrimary(isDarkTheme),
+                  fontSize: screenWidth < 400 ? 14 : 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.add_circle, size: 18),
+                label: const Text('Add'),
+                onPressed: _addNutritionField,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          if (_nutritionControllers.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  'Click "Add" to enter nutrition facts.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary(isDarkTheme),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _nutritionControllers.length,
+              itemBuilder: (context, index) {
+                return _buildNutritionRow(
+                  index,
+                  _nutritionControllers[index].key,
+                  _nutritionControllers[index].value,
+                  isDarkTheme,
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  // *** NEW ***: Helper for a single nutrition row
+  Widget _buildNutritionRow(
+      int index,
+      TextEditingController nameController,
+      TextEditingController valueController,
+      bool isDarkTheme,
+      ) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: TextFormField(
+              controller: nameController,
+              decoration: InputDecoration(
+                labelText: 'Nutrient',
+                hintText: 'e.g., Protein',
+                border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+              ),
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 2,
+            child: TextFormField(
+              controller: valueController,
+              decoration: InputDecoration(
+                labelText: 'Value',
+                hintText: 'e.g., 10g',
+                border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+              ),
+              style: const TextStyle(fontSize: 14),
+            ),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            icon: Icon(Icons.remove_circle, color: Colors.red.shade400, size: 20),
+            onPressed: () => _removeNutritionField(index),
+            tooltip: 'Remove',
+          ),
+        ],
+      ),
+    );
+  }
+
+  // *** REWRITTEN ***: Widget for tags input
+  Widget _buildTagsSection(bool isDarkTheme, double screenWidth) {
+    return Container(
+      padding: EdgeInsets.all(screenWidth < 400 ? 12 : 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.cardBackground(isDarkTheme),
+            AppColors.cardBackground(isDarkTheme).withOpacity(0.8),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Tags (Optional)',
+            style: TextStyle(
+              color: AppColors.textPrimary(isDarkTheme),
+              fontSize: screenWidth < 400 ? 14 : 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _tagInputController,
+                  decoration: InputDecoration(
+                    labelText: 'Add a tag',
+                    hintText: 'e.g., healthy, vegan...',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  ),
+                  style: TextStyle(fontSize: screenWidth < 400 ? 14 : 16),
+                  onFieldSubmitted: (value) => _addTag(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.add_circle),
+                onPressed: _addTag,
+                color: Colors.green,
+                tooltip: 'Add Tag',
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (_tags.isEmpty)
+            Text(
+              'No tags added yet.',
+              style: TextStyle(
+                color: AppColors.textSecondary(isDarkTheme),
+                fontSize: 13,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8.0,
+              runSpacing: 4.0,
+              children: _tags.map((tag) {
+                return Chip(
+                  label: Text(tag),
+                  labelStyle: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w500),
+                  backgroundColor: Colors.blue.shade600,
+                  onDeleted: () => _removeTag(tag),
+                  deleteIcon: const Icon(Icons.close, size: 16),
+                  deleteIconColor: Colors.white70,
+                );
+              }).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // *** MODIFIED ***: Calories field added
+  Widget _buildRecipeDetails(bool isDarkTheme, double screenWidth) {
+    return Container(
+      padding: EdgeInsets.all(screenWidth < 400 ? 12 : 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.cardBackground(isDarkTheme),
+            AppColors.cardBackground(isDarkTheme).withOpacity(0.8),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Recipe Details',
+            style: TextStyle(
+              color: AppColors.textPrimary(isDarkTheme),
+              fontSize: screenWidth < 400 ? 14 : 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Difficulty Selection
+          Text(
+            'Difficulty Level',
+            style: TextStyle(
+              color: AppColors.textPrimary(isDarkTheme),
+              fontSize: screenWidth < 400 ? 13 : 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: _difficulties.map((difficulty) {
+              final isSelected = _selectedDifficulty == difficulty;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedDifficulty = difficulty),
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: EdgeInsets.symmetric(
+                      vertical: screenWidth < 400 ? 10 : 12,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: isSelected
+                          ? LinearGradient(
+                          colors: [Colors.orange, Colors.orange.shade600])
+                          : null,
+                      color: !isSelected ? Colors.grey.withOpacity(0.1) : null,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected
+                            ? Colors.orange
+                            : Colors.grey.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        difficulty,
+                        style: TextStyle(
+                          color: isSelected
+                              ? Colors.white
+                              : AppColors.textSecondary(isDarkTheme),
+                          fontWeight: FontWeight.w600,
+                          fontSize: screenWidth < 400 ? 13 : 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 16),
+
+          // *** MODIFIED ***: Split into two rows for better layout
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _prepTimeController,
+                  decoration: InputDecoration(
+                    labelText: 'Prep (min)',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                  ),
+                  style: TextStyle(fontSize: screenWidth < 400 ? 14 : 16),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  controller: _cookTimeController,
+                  decoration: InputDecoration(
+                    labelText: 'Cook (min)',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                  ),
+                  style: TextStyle(fontSize: screenWidth < 400 ? 14 : 16),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // *** NEW ***: Second row for calories and servings
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _caloriesController,
+                  decoration: InputDecoration(
+                    labelText: 'Calories (kcal)',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                  ),
+                  style: TextStyle(fontSize: screenWidth < 400 ? 14 : 16),
+                  keyboardType: TextInputType.number,
+                  validator: (value) =>
+                  value?.trim().isEmpty == true ? 'Required' : null,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextFormField(
+                  controller: _servingsController,
+                  decoration: InputDecoration(
+                    labelText: 'Servings',
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                  ),
+                  style: TextStyle(fontSize: screenWidth < 400 ? 14 : 16),
+                  keyboardType: TextInputType.number,
+                  validator: (value) =>
+                  value?.trim().isEmpty == true ? 'Required' : null,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // *** MODIFIED ***: Renamed and ingredients part removed
+  Widget _buildInstructionsSection(bool isDarkTheme, double screenWidth) {
+    return Container(
+      padding: EdgeInsets.all(screenWidth < 400 ? 12 : 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.cardBackground(isDarkTheme),
+            AppColors.cardBackground(isDarkTheme).withOpacity(0.8),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Instructions',
+            style: TextStyle(
+              color: AppColors.textPrimary(isDarkTheme),
+              fontSize: screenWidth < 400 ? 14 : 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // *** Ingredients TextFormField REMOVED from here ***
+          TextFormField(
+            controller: _instructionsController,
+            decoration: InputDecoration(
+              labelText: 'Instructions',
+              hintText:
+              'One step per line\nPreheat oven to 350°F\nMix ingredients',
+              border:
+              OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            ),
+            style: TextStyle(fontSize: screenWidth < 400 ? 14 : 16),
+            maxLines: screenWidth < 400 ? 5 : 6, // Responsive lines
+            validator: (value) =>
+            value?.trim().isEmpty == true ? 'Instructions required' : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- Unchanged Widgets Below ---
+
   Widget _buildCategorySelection(bool isDarkTheme, double screenWidth) {
+    // ... (This widget is unchanged) ...
     return Container(
       padding: EdgeInsets.all(screenWidth < 400 ? 12 : 16),
       decoration: BoxDecoration(
@@ -313,10 +951,9 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          // Use a Wrap for a responsive layout of chips
           Wrap(
-            spacing: 8.0, // horizontal spacing between chips
-            runSpacing: 8.0, // vertical spacing between lines of chips
+            spacing: 8.0,
+            runSpacing: 8.0,
             children: _categories.map((category) {
               final isSelected = _selectedCategory == category;
               return ChoiceChip(
@@ -330,16 +967,21 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
                   }
                 },
                 selectedColor: Colors.blue.withOpacity(0.8),
-                backgroundColor: AppColors.textSecondary(isDarkTheme).withOpacity(0.1),
+                backgroundColor:
+                AppColors.textSecondary(isDarkTheme).withOpacity(0.1),
                 labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : AppColors.textPrimary(isDarkTheme),
+                  color: isSelected
+                      ? Colors.white
+                      : AppColors.textPrimary(isDarkTheme),
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                   fontSize: screenWidth < 400 ? 12 : 14,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                   side: BorderSide(
-                    color: isSelected ? Colors.blue.shade700 : AppColors.borderColor(isDarkTheme),
+                    color: isSelected
+                        ? Colors.blue.shade700
+                        : AppColors.borderColor(isDarkTheme),
                   ),
                 ),
               );
@@ -349,9 +991,9 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
       ),
     );
   }
-  // *********************************************
 
   Widget _buildHeaderCard(bool isDarkTheme, double screenWidth) {
+    // ... (This widget is unchanged) ...
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(screenWidth < 400 ? 12 : 16),
@@ -370,7 +1012,8 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [Colors.green, Colors.green.shade600]),
+              gradient: LinearGradient(
+                  colors: [Colors.green, Colors.green.shade600]),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(Icons.public, color: Colors.white, size: 20),
@@ -430,6 +1073,7 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
   }
 
   Widget _buildUploadProgress(bool isDarkTheme, double screenWidth) {
+    // ... (This widget is unchanged) ...
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: EdgeInsets.all(screenWidth < 400 ? 12 : 16),
@@ -489,6 +1133,7 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
   }
 
   Widget _buildImageUpload(bool isDarkTheme, double screenWidth) {
+    // ... (This widget is unchanged) ...
     return Container(
       padding: EdgeInsets.all(screenWidth < 400 ? 12 : 16),
       decoration: BoxDecoration(
@@ -499,7 +1144,8 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
           ],
         ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.textSecondary(isDarkTheme).withOpacity(0.1)),
+        border: Border.all(
+            color: AppColors.textSecondary(isDarkTheme).withOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,7 +1185,9 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
               width: double.infinity,
               height: screenWidth < 400 ? 140 : 160, // Responsive height
               decoration: BoxDecoration(
-                color: _selectedImage != null ? Colors.transparent : Colors.orange.withOpacity(0.05),
+                color: _selectedImage != null
+                    ? Colors.transparent
+                    : Colors.orange.withOpacity(0.05),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: Colors.orange.withOpacity(0.3),
@@ -577,7 +1225,8 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
                             ),
                           ],
                         ),
-                        child: const Icon(Icons.close, color: Colors.white, size: 16),
+                        child: const Icon(Icons.close,
+                            color: Colors.white, size: 16),
                       ),
                     ),
                   ),
@@ -624,6 +1273,7 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
   }
 
   Widget _buildBasicInfo(bool isDarkTheme, double screenWidth) {
+    // ... (This widget is unchanged) ...
     return Container(
       padding: EdgeInsets.all(screenWidth < 400 ? 12 : 16),
       decoration: BoxDecoration(
@@ -652,11 +1302,14 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
             decoration: InputDecoration(
               labelText: 'Recipe Title',
               hintText: 'Enter recipe name',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              border:
+              OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             ),
             style: TextStyle(fontSize: screenWidth < 400 ? 14 : 16),
-            validator: (value) => value?.trim().isEmpty == true ? 'Title required' : null,
+            validator: (value) =>
+            value?.trim().isEmpty == true ? 'Title required' : null,
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -664,188 +1317,15 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
             decoration: InputDecoration(
               labelText: 'Description',
               hintText: 'Brief recipe description',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              border:
+              OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
             ),
             style: TextStyle(fontSize: screenWidth < 400 ? 14 : 16),
             maxLines: 3,
-            validator: (value) => value?.trim().isEmpty == true ? 'Description required' : null,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecipeDetails(bool isDarkTheme, double screenWidth) {
-    return Container(
-      padding: EdgeInsets.all(screenWidth < 400 ? 12 : 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.cardBackground(isDarkTheme),
-            AppColors.cardBackground(isDarkTheme).withOpacity(0.8),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Recipe Details',
-            style: TextStyle(
-              color: AppColors.textPrimary(isDarkTheme),
-              fontSize: screenWidth < 400 ? 14 : 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Difficulty Selection
-          Text(
-            'Difficulty Level',
-            style: TextStyle(
-              color: AppColors.textPrimary(isDarkTheme),
-              fontSize: screenWidth < 400 ? 13 : 14,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: _difficulties.map((difficulty) {
-              final isSelected = _selectedDifficulty == difficulty;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _selectedDifficulty = difficulty),
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: EdgeInsets.symmetric(
-                      vertical: screenWidth < 400 ? 10 : 12,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: isSelected
-                          ? LinearGradient(colors: [Colors.orange, Colors.orange.shade600])
-                          : null,
-                      color: !isSelected ? Colors.grey.withOpacity(0.1) : null,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isSelected ? Colors.orange : Colors.grey.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Center(
-                      child: Text(
-                        difficulty,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : AppColors.textSecondary(isDarkTheme),
-                          fontWeight: FontWeight.w600,
-                          fontSize: screenWidth < 400 ? 13 : 14,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Time & Servings in responsive grid
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _prepTimeController,
-                  decoration: InputDecoration(
-                    labelText: 'Prep (min)',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                  ),
-                  style: TextStyle(fontSize: screenWidth < 400 ? 14 : 16),
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextFormField(
-                  controller: _cookTimeController,
-                  decoration: InputDecoration(
-                    labelText: 'Cook (min)',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                  ),
-                  style: TextStyle(fontSize: screenWidth < 400 ? 14 : 16),
-                  keyboardType: TextInputType.number,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextFormField(
-                  controller: _servingsController,
-                  decoration: InputDecoration(
-                    labelText: 'Servings',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                  ),
-                  style: TextStyle(fontSize: screenWidth < 400 ? 14 : 16),
-                  keyboardType: TextInputType.number,
-                  validator: (value) => value?.trim().isEmpty == true ? 'Required' : null,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIngredientsInstructions(bool isDarkTheme, double screenWidth) {
-    return Container(
-      padding: EdgeInsets.all(screenWidth < 400 ? 12 : 16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.cardBackground(isDarkTheme),
-            AppColors.cardBackground(isDarkTheme).withOpacity(0.8),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Ingredients & Instructions',
-            style: TextStyle(
-              color: AppColors.textPrimary(isDarkTheme),
-              fontSize: screenWidth < 400 ? 14 : 16,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _ingredientsController,
-            decoration: InputDecoration(
-              labelText: 'Ingredients',
-              hintText: 'One ingredient per line\n2 cups flour\n1 tsp salt',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            ),
-            style: TextStyle(fontSize: screenWidth < 400 ? 14 : 16),
-            maxLines: screenWidth < 400 ? 4 : 5, // Responsive lines
-            validator: (value) => value?.trim().isEmpty == true ? 'Ingredients required' : null,
-          ),
-          const SizedBox(height: 12),
-          TextFormField(
-            controller: _instructionsController,
-            decoration: InputDecoration(
-              labelText: 'Instructions',
-              hintText: 'One step per line\nPreheat oven to 350°F\nMix ingredients',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            ),
-            style: TextStyle(fontSize: screenWidth < 400 ? 14 : 16),
-            maxLines: screenWidth < 400 ? 5 : 6, // Responsive lines
-            validator: (value) => value?.trim().isEmpty == true ? 'Instructions required' : null,
+            validator: (value) =>
+            value?.trim().isEmpty == true ? 'Description required' : null,
           ),
         ],
       ),
@@ -853,6 +1333,7 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
   }
 
   Widget _buildUploadButton(bool isDarkTheme, double screenWidth) {
+    // ... (This widget is unchanged) ...
     return Container(
       width: double.infinity,
       height: 50, // Normal button height

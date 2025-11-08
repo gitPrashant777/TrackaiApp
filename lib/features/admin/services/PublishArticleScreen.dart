@@ -1,16 +1,12 @@
-// lib/PublishArticleScreen.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_markdown/flutter_markdown.dart'; // ✅ For live preview
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 
-// This import is correct, as your ManageReviewersScreen.dart file
-// provides both of these classes.
 import 'ManageReviewersScreen.dart' show Reviewer, ReviewerService;
 import 'article_service.dart';
-
-// Import the new ArticleService
-// (This path might be different for you)
 
 class PublishArticleScreen extends StatefulWidget {
   const PublishArticleScreen({Key? key}) : super(key: key);
@@ -21,11 +17,10 @@ class PublishArticleScreen extends StatefulWidget {
 
 class _PublishArticleScreenState extends State<PublishArticleScreen> {
   final _titleController = TextEditingController();
-  final _contentController = TextEditingController();
-  // --- ADDED NEW CONTROLLERS ---
+  final _markdownController = TextEditingController();
   final _takeawayController = TextEditingController();
   final _referencesController = TextEditingController();
-  // -----------------------------
+
   final List<String> _categories = [
     'Reproductive Health 101',
     'Periods',
@@ -39,17 +34,27 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
   List<Reviewer> _reviewers = [];
   Reviewer? _selectedReviewer;
 
-  // --- ADDED STATE FOR IMAGE & UPLOAD ---
   XFile? _selectedImage;
   bool _isUploading = false;
   double _uploadProgress = 0.0;
   final ImagePicker _picker = ImagePicker();
 
+  bool _showPreview = false; // ✅ toggle between editor and preview
+
   @override
   void initState() {
     super.initState();
     _fetchReviewers();
-    _selectedCategory = _categories.first; // <-- ADD THIS LINE
+    _selectedCategory = _categories.first;
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _markdownController.dispose();
+    _takeawayController.dispose();
+    _referencesController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchReviewers() async {
@@ -64,13 +69,10 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
         });
       });
     } catch (e) {
-      if (mounted) {
-        _showSnackBar('Failed to fetch reviewers: $e', isError: true);
-      }
+      _showSnackBar('Failed to fetch reviewers: $e', isError: true);
     }
   }
 
-  // --- ADDED IMAGE PICKER FUNCTION ---
   Future<void> _pickImage() async {
     try {
       final XFile? image = await _picker.pickImage(
@@ -79,9 +81,7 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
         imageQuality: 85,
       );
       if (image != null) {
-        setState(() {
-          _selectedImage = image;
-        });
+        setState(() => _selectedImage = image);
       }
     } catch (e) {
       _showSnackBar('Failed to pick image: $e', isError: true);
@@ -90,40 +90,26 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
 
   void _clearForm() {
     _titleController.clear();
-    setState(() {
-      _selectedImage = null;
-      _selectedCategory = _categories.first; // <-- ADD THIS LINE
-      if (_reviewers.isNotEmpty) {
-        _selectedReviewer = _reviewers.first;
-      }
-    });    _contentController.clear();
-    // --- CLEAR NEW FIELDS ---
+    _markdownController.clear();
     _takeawayController.clear();
     _referencesController.clear();
-    // ------------------------
     setState(() {
       _selectedImage = null;
-      if (_reviewers.isNotEmpty) {
-        _selectedReviewer = _reviewers.first;
-      }
+      _selectedCategory = _categories.first;
+      _selectedReviewer =
+      _reviewers.isNotEmpty ? _reviewers.first : null;
     });
   }
 
-  // --- UPDATED PUBLISH FUNCTION ---
   Future<void> _publishArticle() async {
     if (_titleController.text.isEmpty ||
-        _contentController.text.isEmpty ||
+        _markdownController.text.isEmpty ||
         _selectedReviewer == null ||
         _selectedImage == null ||
         _selectedCategory == null ||
-        // --- ADDED VALIDATION ---
         _takeawayController.text.isEmpty ||
         _referencesController.text.isEmpty) {
-
-      // ------------------------
-      _showSnackBar(
-          'Please fill all fields, select a reviewer, and add a cover image',
-          isError: true);
+      _showSnackBar('Please fill all fields properly.', isError: true);
       return;
     }
 
@@ -133,24 +119,19 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
     });
 
     try {
-      // --- Helper to split references ---
       final List<String> referencesList = _referencesController.text
           .split('\n')
           .where((s) => s.trim().isNotEmpty)
           .toList();
-      // --------------------------------
 
-      // Call the new service
       await ArticleService.createArticle(
         title: _titleController.text,
         category: _selectedCategory!,
-        content: _contentController.text,
+        content: _markdownController.text,
         reviewer: _selectedReviewer!,
         imageFile: _selectedImage!,
-        // --- PASS NEW DATA ---
         takeaway: _takeawayController.text,
         references: referencesList,
-        // ---------------------
         onProgress: (progress) {
           setState(() {
             _uploadProgress = progress;
@@ -159,20 +140,14 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
       );
 
       _clearForm();
-      if (mounted) {
-        _showSnackBar('Article published successfully!');
-      }
+      _showSnackBar('Article published successfully!');
     } catch (e) {
-      if (mounted) {
-        _showSnackBar('Failed to publish article: $e', isError: true);
-      }
+      _showSnackBar('Failed to publish: $e', isError: true);
     } finally {
-      if (mounted) {
-        setState(() {
-          _isUploading = false;
-          _uploadProgress = 0.0;
-        });
-      }
+      setState(() {
+        _isUploading = false;
+        _uploadProgress = 0.0;
+      });
     }
   }
 
@@ -185,99 +160,187 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
     );
   }
 
+  void _wrapSelection(String prefix, String suffix) {
+    final value = _markdownController.value;
+    final sel = value.selection;
+    final selected = value.text.substring(sel.start, sel.end);
+    final newText =
+    value.text.replaceRange(sel.start, sel.end, '$prefix$selected$suffix');
+    _markdownController.value = value.copyWith(
+      text: newText,
+      selection: TextSelection.collapsed(
+        offset: sel.start + prefix.length + selected.length + suffix.length,
+      ),
+    );
+  }
+
+  void _insertLineStart(String text) {
+    final value = _markdownController.value;
+    final sel = value.selection;
+    final int lineStart = value.text.lastIndexOf('\n', sel.start - 1) + 1;
+    final newText = value.text.replaceRange(lineStart, lineStart, text);
+    _markdownController.value = value.copyWith(
+      text: newText,
+      selection: TextSelection.collapsed(offset: sel.start + text.length),
+    );
+  }
+
+  Future<bool> _onWillPop() async {
+    SystemNavigator.pop();
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5E6F1),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Publish New Article',
-          style: TextStyle(color: Colors.black),
-        ),
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            _buildTextField(_titleController, 'Title'),
-            _buildCategoryDropdown(),
-            _buildImagePicker(),
-            const SizedBox(height: 16),
-            _buildReviewerDropdown(),
-            _buildTextField(_contentController,
-                'Full Article Content (Markdown supported)',
-                maxLines: 15),
-            // --- ADDED NEW FIELDS ---
-            _buildTextField(_takeawayController, 'The takeaway', maxLines: 5),
-            _buildTextField(
-                _referencesController, 'References (one per line)',
-                maxLines: 5),
-            // ------------------------
-            const SizedBox(height: 16),
-            if (_isUploading)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: LinearProgressIndicator(
-                  value: _uploadProgress,
-                  color: const Color(0xFFE91E63),
-                  backgroundColor: const Color(0xFFF5E6F1),
-                ),
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5E6F1),
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: Colors.black),
+            onPressed: _onWillPop,
+          ),
+          title: const Text('Publish New Article',
+              style: TextStyle(color: Colors.black)),
+          iconTheme: const IconThemeData(color: Colors.black),
+          actions: [
+            IconButton(
+              icon: Icon(
+                _showPreview ? Icons.edit_note : Icons.remove_red_eye,
+                color: Colors.pink,
               ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFE91E63),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: _isUploading ? null : _publishArticle,
-                child: _isUploading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Publish Article'),
-              ),
+              onPressed: () {
+                setState(() => _showPreview = !_showPreview);
+              },
+              tooltip: _showPreview ? 'Edit Mode' : 'Preview Mode',
             ),
           ],
         ),
-      ),
-    );
-  }
-  Widget _buildCategoryDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      margin: const EdgeInsets.only(bottom: 16.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          isExpanded: true,
-          value: _selectedCategory,
-          hint: const Text('Select a Category'),
-          dropdownColor: Colors.white,
-          style: const TextStyle(color: Colors.black, fontSize: 16),
-          onChanged: (String? newValue) {
-            setState(() {
-              _selectedCategory = newValue;
-            });
-          },
-          items: _categories.map<DropdownMenuItem<String>>((String value) {
-            return DropdownMenuItem<String>(
-              value: value,
-              child: Text(value),
-            );
-          }).toList(),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            children: [
+              _buildTextField(_titleController, 'Title'),
+              _buildCategoryDropdown(),
+              _buildImagePicker(),
+              const SizedBox(height: 16),
+              _buildReviewerDropdown(),
+
+              // Toolbar
+              if (!_showPreview)
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Wrap(
+                    spacing: 6,
+                    children: [
+                      _toolButton('H1', () => _insertLineStart('# ')),
+                      _toolButton('H2', () => _insertLineStart('## ')),
+                      _toolButton('B', () => _wrapSelection('**', '**')),
+                      _toolButton('I', () => _wrapSelection('_', '_')),
+                      _toolButton('•', () => _insertLineStart('- ')),
+                      _toolButton('1.', () => _insertLineStart('1. ')),
+                      _toolButton('❝', () => _insertLineStart('> ')),
+                      _toolButton('</>', () => _wrapSelection('`', '`')),
+                    ],
+                  ),
+                ),
+
+              // Editor or Preview
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: _showPreview
+                    ? MarkdownBody(
+                  data: _markdownController.text.isEmpty
+                      ? 'Start writing to see preview here...'
+                      : _markdownController.text,
+                  styleSheet: MarkdownStyleSheet(
+                    h1: const TextStyle(
+                        fontSize: 24, fontWeight: FontWeight.bold),
+                    h2: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold),
+                    p: const TextStyle(fontSize: 16),
+                  ),
+                )
+                    : ConstrainedBox(
+                  constraints: const BoxConstraints(
+                      minHeight: 200, maxHeight: 600),
+                  child: TextField(
+                    controller: _markdownController,
+                    keyboardType: TextInputType.multiline,
+                    maxLines: null,
+                    style: const TextStyle(color: Colors.black),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText:
+                      'Write your article here using Markdown syntax...',
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+              _buildTextField(_takeawayController, 'The takeaway', maxLines: 5),
+              _buildTextField(
+                  _referencesController, 'References (one per line)',
+                  maxLines: 5),
+
+              if (_isUploading)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: LinearProgressIndicator(
+                    value: _uploadProgress,
+                    color: const Color(0xFFE91E63),
+                    backgroundColor: const Color(0xFFF5E6F1),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE91E63),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _isUploading ? null : _publishArticle,
+                  child: _isUploading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Publish Article'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
-  // -----------------
+
+  Widget _toolButton(String label, VoidCallback onPressed) => ElevatedButton(
+    onPressed: onPressed,
+    style: ElevatedButton.styleFrom(
+      elevation: 0,
+      backgroundColor: Colors.white,
+      side: const BorderSide(color: Color(0xFFE0E0E0)),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      minimumSize: const Size(40, 36),
+    ),
+    child: Text(label, style: const TextStyle(color: Colors.black)),
+  );
+
   Widget _buildTextField(TextEditingController controller, String label,
       {int maxLines = 1}) {
     return Padding(
@@ -304,7 +367,34 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
     );
   }
 
-  // --- ADDED IMAGE PICKER WIDGET ---
+  Widget _buildCategoryDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      margin: const EdgeInsets.only(bottom: 16.0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          isExpanded: true,
+          value: _selectedCategory,
+          dropdownColor: Colors.white,
+          style: const TextStyle(color: Colors.black, fontSize: 16),
+          onChanged: (String? newValue) {
+            setState(() {
+              _selectedCategory = newValue;
+            });
+          },
+          items: _categories
+              .map((value) =>
+              DropdownMenuItem<String>(value: value, child: Text(value)))
+              .toList(),
+        ),
+      ),
+    );
+  }
+
   Widget _buildImagePicker() {
     return GestureDetector(
       onTap: _pickImage,
@@ -315,54 +405,27 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: _selectedImage == null
-                ? Colors.grey[400]!
-                : const Color(0xFFE91E63),
-            width: 1,
+            color:
+            _selectedImage == null ? Colors.grey[400]! : const Color(0xFFE91E63),
           ),
         ),
         child: _selectedImage != null
-            ? Stack(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(11),
-              child: Image.file(
-                File(_selectedImage!.path),
-                width: double.infinity,
-                height: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.5),
-                  shape: BoxShape.circle,
-                ),
-                child:
-                const Icon(Icons.edit, color: Colors.white, size: 20),
-              ),
-            )
-          ],
+            ? ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.file(File(_selectedImage!.path),
+              width: double.infinity,
+              height: double.infinity,
+              fit: BoxFit.cover),
         )
             : Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.add_photo_alternate_outlined,
-              size: 40,
-              color: Colors.grey[700],
-            ),
+            const Icon(Icons.add_photo_alternate_outlined,
+                size: 40, color: Colors.grey),
             const SizedBox(height: 8),
-            Text(
-              'Tap to add cover image',
-              style: TextStyle(
-                color: Colors.grey[700],
-                fontSize: 16,
-              ),
-            ),
+            Text('Tap to add cover image',
+                style:
+                TextStyle(color: Colors.grey[700], fontSize: 16)),
           ],
         ),
       ),
@@ -382,20 +445,14 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
           isExpanded: true,
           value: _selectedReviewer,
           hint: const Text('Select a Reviewer'),
-          dropdownColor: Colors.white,
           style: const TextStyle(color: Colors.black, fontSize: 16),
           onChanged: (Reviewer? newValue) {
-            setState(() {
-              _selectedReviewer = newValue;
-            });
+            setState(() => _selectedReviewer = newValue);
           },
-          items:
-          _reviewers.map<DropdownMenuItem<Reviewer>>((Reviewer reviewer) {
-            return DropdownMenuItem<Reviewer>(
-              value: reviewer,
-              child: Text(reviewer.name),
-            );
-          }).toList(),
+          items: _reviewers
+              .map((Reviewer r) =>
+              DropdownMenuItem(value: r, child: Text(r.name)))
+              .toList(),
         ),
       ),
     );

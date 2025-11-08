@@ -202,7 +202,7 @@ class _DailyDetailsScreenState extends State<DailyDetailsScreen> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(Color(0xFFE91E63))))
           : SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

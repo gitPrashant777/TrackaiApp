@@ -108,7 +108,7 @@ class _LogMenstrualCycleFormState extends State<LogMenstrualCycleForm> {
         key: _formKey,
         child: SingleChildScrollView(
           // Padding is now on the SingleChildScrollView
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

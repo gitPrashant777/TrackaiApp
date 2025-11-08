@@ -82,13 +82,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        // Load the log for the current user and today's date
-        Provider.of<DailyLogProvider>(context, listen: false)
-            .loadEntriesForDate(DateTime.now());
-      }
-    });
+
+    // --- UPDATED: Combined initialization logic ---
+    _initializeUserData();
+    // ---------------------------------------------
+
     _pages = [
       const Homescreen(),
       const Trackerscreen(),
@@ -101,7 +99,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     ];
 
     _loadPreferences();
-    _loadStreakData();
     _pageController = PageController(initialPage: currentIndex);
     _fabAnimationController = AnimationController(
       duration: const Duration(milliseconds: 300),
@@ -154,6 +151,22 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
     _fabAnimationController.forward();
   }
+
+  // --- NEW: Combined method to fix streak race condition ---
+  Future<void> _initializeUserData() async {
+    // 1. Record the login first
+    await StreakService.recordDailyLogin();
+
+    // 2. NOW load streak data (for app bar)
+    await _loadStreakData();
+
+    // 3. Load daily log
+    if (mounted) {
+      Provider.of<DailyLogProvider>(context, listen: false)
+          .loadEntriesForDate(DateTime.now());
+    }
+  }
+  // --------------------------------------------------------
 
   void _loadPreferences() async {
     setState(() {
@@ -222,16 +235,22 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 
   Future<void> _loadStreakData() async {
+    // This method now runs *after* recordDailyLogin()
     try {
+      if (!mounted) return;
+      setState(() => _isLoadingStreak = true);
+
       final currentStreak = await StreakService.getCurrentStreakCount();
       final longestStreak = await StreakService.getLongestStreak();
 
+      if (!mounted) return;
       setState(() {
         _currentStreak = currentStreak;
         _longestStreak = longestStreak;
         _isLoadingStreak = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoadingStreak = false;
       });
@@ -1009,7 +1028,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   }
 }
 
-  class PatternBackgroundPainter extends CustomPainter {
+class PatternBackgroundPainter extends CustomPainter {
   final Color color;
   PatternBackgroundPainter({required this.color});
 

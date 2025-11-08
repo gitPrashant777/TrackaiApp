@@ -60,8 +60,9 @@ class _LogPeriodScreenState extends State<LogPeriodScreen> {
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+
+    child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
@@ -75,8 +76,7 @@ class _LogPeriodScreenState extends State<LogPeriodScreen> {
             const SizedBox(height: 30),
             _buildFlowIntensitySection(),
             const SizedBox(height: 24),
-            _buildPeriodToggles(),
-            const SizedBox(height: 24),
+
             _buildCrampIntensitySection(),
             const SizedBox(height: 40),
             _buildSaveButton(),
@@ -163,25 +163,7 @@ class _LogPeriodScreenState extends State<LogPeriodScreen> {
     );
   }
 
-  Widget _buildPeriodToggles() {
-    return Column(
-      children: [
-        _buildToggleCard('Start of new period', isStartOfPeriod, (value) {
-          setState(() {
-            isStartOfPeriod = value;
-            if (value) isEndOfPeriod = false; // Cannot be start and end
-          });
-        }),
-        const SizedBox(height: 12),
-        _buildToggleCard('End of period', isEndOfPeriod, (value) { // Changed label slightly
-          setState(() {
-            isEndOfPeriod = value;
-            if (value) isStartOfPeriod = false; // Cannot be start and end
-          });
-        }),
-      ],
-    );
-  }
+
 
   Widget _buildToggleCard(String label, bool value, Function(bool) onChanged) {
     return Container(

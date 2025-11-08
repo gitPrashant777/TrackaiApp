@@ -143,7 +143,7 @@ class _InsightsScreenState extends State<InsightsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+          padding: const EdgeInsets.fromLTRB(14, 18, 14, 10),
           child: Text(
             category,
             style: const TextStyle(

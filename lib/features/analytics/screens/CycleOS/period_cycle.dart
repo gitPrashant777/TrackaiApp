@@ -27,12 +27,10 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
   int _cycleLengthDays = 28;
   int _periodLengthDays = 5;
   DateTime? _lastPeriodDate;
-  // DateTime _currentDate = DateTime.now(); // No longer needed for week calendar
 
-  // --- NEW STATE VARIABLES ---
   int _daysToOvulation = 0;
-  String _pregnancyChance = ''; // Will store "High", "Low", etc.
-  // -------------------------
+  int _daysToPeriod = 0;
+  String _pregnancyChance = '';
 
   @override
   void initState() {
@@ -40,7 +38,6 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
     _loadCycleData();
   }
 
-  // --- ADDED FUNCTION TO PUSH FULL SCREEN ---
   Future<void> _showLogCycleForm() async {
     final result = await Navigator.push(
       context,
@@ -48,26 +45,21 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
         builder: (context) => const LogMenstrualCycleForm(),
       ),
     );
-
-    // This logic stays the same.
-    // If the form was saved, 'result' will be true
     if (result == true) {
       _loadCycleData();
     }
   }
-  // --- END OF ADDED FUNCTION ---
 
-
-  // --- MODIFIED FUNCTION ---
   Future<void> _loadCycleData() async {
     setState(() {
       _isLoadingData = true;
       predictedPeriod = '---';
       fertileWindow = '---';
       currentPhase = 'Loading...';
-      _pregnancyChance = ''; // Reset
+      _pregnancyChance = '';
       cycleDay = 1;
-      _daysToOvulation = 0; // Reset countdown
+      _daysToOvulation = 0;
+      _daysToPeriod = 0;
     });
 
     final user = FirebaseAuth.instance.currentUser;
@@ -100,49 +92,63 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
         if (_lastPeriodDate != null) {
           final today =
           DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-          final daysSinceStart = today.difference(_lastPeriodDate!).inDays;
 
-          final calculatedCycleDay = (daysSinceStart % _cycleLengthDays) + 1;
+          // --- ### MODIFIED & FIXED LOGIC START ### ---
+          // 1. Calculate the difference in days. Can be negative (if last period is in future)
+          final daysDifference = today.difference(_lastPeriodDate!).inDays;
 
-          final nextPeriod =
-          _lastPeriodDate!.add(Duration(days: _cycleLengthDays));
-          final periodEndDate =
-          nextPeriod.add(Duration(days: _periodLengthDays - 1));
+          // 2. Use a true modulo operation to find the cycle day number.
+          // This handles both past and future dates correctly.
+          // (daysDifference % N + N) % N handles negative numbers, unlike a simple %
+          final calculatedCycleDay = (daysDifference % _cycleLengthDays + _cycleLengthDays) % _cycleLengthDays + 1;
 
-          final ovulationDay = nextPeriod.subtract(const Duration(days: 14));
-          final fertileStart = ovulationDay.subtract(const Duration(days: 5));
-          final fertileEnd = ovulationDay.add(const Duration(days: 1));
+          // 3. Find the start date of the *current* cycle based on today's date and the calculated day.
+          final currentCycleStartDate = today.subtract(Duration(days: calculatedCycleDay - 1));
 
-          int approxOvulationDayNum = _cycleLengthDays - 14;
-          DateTime currentCycleOvulationDate =
-          _lastPeriodDate!.add(Duration(days: approxOvulationDayNum));
+          // 4. Calculate all key dates based on the *current* cycle's start
+          final currentPeriodEndDate = currentCycleStartDate.add(Duration(days: _periodLengthDays - 1));
 
-          int daysToOvulation;
-          if (today.isAfter(currentCycleOvulationDate)) {
-            DateTime nextCycleOvulationDate =
-            currentCycleOvulationDate.add(Duration(days: _cycleLengthDays));
-            daysToOvulation = nextCycleOvulationDate.difference(today).inDays;
-          } else {
-            daysToOvulation = currentCycleOvulationDate.difference(today).inDays;
-          }
+          final approxOvulationDayInCycle = _cycleLengthDays - 14;
+          // Ensure ovulation isn't day 0 or negative if cycle is too short
+          final ovulationDayNumber = approxOvulationDayInCycle <= 0 ? 1 : approxOvulationDayInCycle;
 
-          // --- MODIFIED: Get phase and chance from map ---
+          final ovulationDate = currentCycleStartDate.add(Duration(days: ovulationDayNumber - 1));
+          final fertileStartDate = ovulationDate.subtract(const Duration(days: 5));
+          final fertileEndDate = ovulationDate.add(const Duration(days: 1));
+
+          // 5. Calculate next period
+          final nextPeriodStartDate = currentCycleStartDate.add(Duration(days: _cycleLengthDays));
+          final nextPeriodEndDate = nextPeriodStartDate.add(Duration(days: _periodLengthDays - 1));
+
+          // 6. Calculate "Days To..."
+          // If we are in the period, days to next period is 0
+          final daysToPeriodFinal = (calculatedCycleDay <= _periodLengthDays) ? 0 : _cycleLengthDays - calculatedCycleDay;
+
+          // Ensure "daysToOvulation" is 0 if ovulation has passed in *this* cycle
+          final daysToOvulationFinal = ovulationDate.isBefore(today) ? 0 : ovulationDate.difference(today).inDays;
+
+          // 7. Get the current phase
           final phaseData = _getCurrentPhase(
-              calculatedCycleDay, _periodLengthDays, _cycleLengthDays, ovulationDay, fertileStart, fertileEnd);
+              today,
+              currentCycleStartDate,
+              currentPeriodEndDate,
+              fertileStartDate,
+              fertileEndDate,
+              ovulationDate,
+              nextPeriodStartDate
+          );
+          // --- ### MODIFIED & FIXED LOGIC END ### ---
 
           setState(() {
             cycleDay = calculatedCycleDay;
-            _daysToOvulation = daysToOvulation; // <-- Save to state
+            _daysToOvulation = daysToOvulationFinal; // Use the final calculated value
+            _daysToPeriod = daysToPeriodFinal; // Use the final calculated value
             predictedPeriod =
-            '${DateFormat('MMM d').format(nextPeriod)} - ${DateFormat('d').format(periodEndDate)}';
+            '${DateFormat('MMM d').format(nextPeriodStartDate)} - ${DateFormat('d').format(nextPeriodEndDate)}';
             fertileWindow =
-            '${DateFormat('MMM d').format(fertileStart)} - ${DateFormat('d').format(fertileEnd)}';
-
-            // --- MODIFIED: Set new state variables ---
+            '${DateFormat('MMM d').format(fertileStartDate)} - ${DateFormat('d').format(fertileEndDate)}';
             currentPhase = phaseData['phase']!;
             _pregnancyChance = phaseData['chance']!;
-            // -----------------------------------------
-
             _isLoadingData = false;
           });
         } else {
@@ -150,9 +156,8 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
             setState(() {
               predictedPeriod = 'Setup Required';
               fertileWindow = 'Setup Required';
-              // --- THIS IS THE KEY for the "Log your cycle" text ---
               currentPhase = 'Log your cycle';
-              _pregnancyChance = ''; // <-- Reset
+              _pregnancyChance = '';
               _isLoadingData = false;
             });
           }
@@ -162,9 +167,8 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
           setState(() {
             predictedPeriod = 'Setup Required';
             fertileWindow = 'Setup Required';
-            // --- THIS IS THE KEY for the "Log your cycle" text ---
             currentPhase = 'Log your cycle';
-            _pregnancyChance = ''; // <-- Reset
+            _pregnancyChance = '';
             _isLoadingData = false;
           });
         }
@@ -176,57 +180,61 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
           predictedPeriod = 'Error Loading';
           fertileWindow = 'Error Loading';
           currentPhase = 'Error';
-          _pregnancyChance = ''; // <-- Reset
+          _pregnancyChance = '';
           _isLoadingData = false;
         });
       }
     }
   }
-  // -------------------------
 
-  // --- MODIFIED: Function now returns a Map ---
-  Map<String, String> _getCurrentPhase(int day, int periodLength, int cycleLength, DateTime ovulationDay, DateTime fertileStart, DateTime fertileEnd) {
-    final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  // --- ### THIS LOGIC IS NOW CORRECT BECAUSE THE DATES ARE CORRECT ### ---
+  Map<String, String> _getCurrentPhase(
+      DateTime today,
+      DateTime currentPeriodStart,
+      DateTime currentPeriodEnd,
+      DateTime fertileStart,
+      DateTime fertileEnd,
+      DateTime ovulationDate,
+      DateTime nextPeriodStart,
+      ) {
+    // Check in logical order
 
-    // 1. Menstrual Phase
-    if (day <= periodLength) {
+    // 1. Are we in the period?
+    if ((today.isAfter(currentPeriodStart) || DateUtils.isSameDay(today, currentPeriodStart)) &&
+        (today.isBefore(currentPeriodEnd) || DateUtils.isSameDay(today, currentPeriodEnd))) {
       return {'phase': 'Menstrual Phase', 'chance': 'Very Low chance of getting pregnant'};
     }
 
-    // 2. Ovulation Phase (Fertile Window)
-    if (DateUtils.isSameDay(today, ovulationDay)) {
-      return {'phase': 'Ovulation Day', 'chance': 'High chance of getting pregnant'};
-    }
+    // 2. Are we in the fertile window?
     if ((today.isAfter(fertileStart) || DateUtils.isSameDay(today, fertileStart)) &&
         (today.isBefore(fertileEnd) || DateUtils.isSameDay(today, fertileEnd))) {
-      return {'phase': 'Ovulation Phase', 'chance': 'High chance of getting pregnant'};
+
+      if (DateUtils.isSameDay(today, ovulationDate)) {
+        return {'phase': 'Ovulation Day', 'chance': 'High chance of getting pregnant'};
+      }
+      return {'phase': 'Fertile Phase', 'chance': 'High chance of getting pregnant'};
     }
 
-    // 3. Follicular Phase (after period, before fertile window)
-    int approxOvulationDay = cycleLength - 14;
-    // Assuming fertile window starts 5 days before ovulation, so "low" is before that.
-    int follicularEnd = approxOvulationDay - 6;
-
-    if (day <= follicularEnd) {
+    // 3. If not in period or fertile window, we are either Follicular or Luteal
+    // Check if we are *before* the fertile window (Follicular)
+    if (today.isBefore(fertileStart)) {
       return {'phase': 'Follicular Phase', 'chance': 'Low chance of getting pregnant'};
     }
 
-    // 4. Luteal Phase (after fertile window)
-    // Anything after fertile window and before next period
+    // 4. If we are not in any of the above, we must be after the fertile window (Luteal)
     return {'phase': 'Luteal Phase', 'chance': 'Very Low chance of getting pregnant'};
   }
-  // ----------------------------------------------
 
-  // --- NEW HELPER FUNCTION FOR COLOR ---
-  Color _getPregnancyChanceColor() {
+
+  Map<String, Color> _getPregnancyChanceColors() {
     if (_pregnancyChance.contains('High')) {
-      return Color(0xFFE91E63); // Pink
+      return {'background': Color(0xFFE91E63), 'text': Colors.white};
     } else if (_pregnancyChance.contains('Low')) {
-      return Colors.teal; // Green/Teal
+      return {'background': Colors.teal.shade400, 'text': Colors.white};
     }
-    return Colors.black.withOpacity(0.7); // Grey for "Very Low"
+    // Very Low
+    return {'background': Colors.grey.shade600, 'text': Colors.white};
   }
-  // -------------------------------------
 
 
   @override
@@ -237,17 +245,15 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
-        // --- MODIFIED: Title and alignment ---
         title: Row(
-          mainAxisSize: MainAxisSize.min, // Keep content tight
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Add your image here
             Image.asset(
               'assets/images/os.jpg',
-              width: 28, // Adjust size as needed
+              width: 28,
               height: 28,
             ),
-            const SizedBox(width: 8), // Spacing
+            const SizedBox(width: 8),
             const Text(
               'Cycle OS',
               style: TextStyle(
@@ -259,8 +265,7 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
             ),
           ],
         ),
-        centerTitle: false,// Aligns to the left
-        // ------------------------------------
+        centerTitle: false,
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_month_outlined, color: Color(0xFFE91E63)),
@@ -277,61 +282,92 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // --- REMOVED: Week Calendar Container ---
-
-            // --- ADDED: Top padding to replace the calendar space ---
-            const SizedBox(height: 30),
-
-            // --- ADDED NEW BUTTON ---
-            _buildHormonesButton(),
-            const SizedBox(height: 25), // Space between button and circle
-            // ------------------------
-
-            _buildCycleDayCircle(), // This widget is modified
+            _buildButtonRow(),
             const SizedBox(height: 20),
 
-            // --- NEW: Pregnancy chance text moved here ---
-            if (!_isLoadingData && _pregnancyChance.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 30.0, vertical: 10.0),
-                child: Text(
-                  _pregnancyChance,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: _getPregnancyChanceColor(), // Dynamic color
-                      height: 1.2
-                  ),
-                ),
-              ),
-            // -------------------------------------------
+            _buildPredictionRectangle(),
+            const SizedBox(height: 30), // Spacing after the main rectangle
 
-            _buildLogCycleWidget(),
-            const SizedBox(height: 20),
-            _buildPredictions(), // This widget is modified
-            const SizedBox(height: 30),
-            _buildQuickLogSection(),
-            const SizedBox(height: 30),
+            // --- DELETED the _buildPredictions() widget from here ---
+
+            // Horizontally scrolling quick log
+            _buildQuickActionScroller(),
+            const SizedBox(height: 50),
           ],
         ),
       ),
     );
   }
 
-  // --- REMOVED: _getWeekDates function ---
-
-  // --- REMOVED: _buildWeekCalendar function ---
-
-  // --- MODIFIED WIDGET ---
-  Widget _buildCycleDayCircle() {
-    // --- NEW: Check for "Log your cycle" state ---
+  Widget _buildPredictionRectangle() {
     if (currentPhase == 'Log your cycle' && !_isLoadingData) {
-      return Container(
-        width: 200,
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0,vertical: 15),
+        child: Container(
+          width: double.infinity,
+          height: 180,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              colors: [
+                const Color(0xFFE91E63).withOpacity(0.3),
+                const Color(0xFFE91E63).withOpacity(0.15),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFE91E63).withOpacity(0.1),
+                blurRadius: 15,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  height: 64,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: const Text(
+                    'Log Your Cycle',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFE91E63),
+                        height: 1.2),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'to get predictions',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black.withOpacity(0.6),
+                      height: 1.2),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      child: Container(
+        width: double.infinity,
+        // --- MODIFIED: Adjusted height to fit new content ---
         height: 200,
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          shape: BoxShape.circle,
+          borderRadius: BorderRadius.circular(20),
           gradient: LinearGradient(
             colors: [
               const Color(0xFFE91E63).withOpacity(0.3),
@@ -349,94 +385,19 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
           ],
         ),
         child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                height: 64, // Give it space
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 10), // Prevent overflow
-                child: const Text(
-                  'Log Your Cycle',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold, // Make it bold
-                      color: Color(0xFFE91E63),
-                      height: 1.2
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8), // Increased spacing
-              Text(
-                'to get predictions',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black.withOpacity(0.6),
-                    height: 1.2
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    // --- END "Log your cycle" state ---
-
-    // --- REMOVED ovulationText variable and logic ---
-
-    return Container(
-      width: 200,
-      height: 200,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFFE91E63).withOpacity(0.3),
-            const Color(0xFFE91E63).withOpacity(0.15),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFE91E63).withOpacity(0.1),
-            blurRadius: 15,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _isLoadingData
-                ? SizedBox(
-                height: 64, // Keep space for loader
-                child: Center(
-                    child: CircularProgressIndicator(
-                        strokeWidth: 3,
-                        valueColor: AlwaysStoppedAnimation(Colors.black54))))
-                : Container(
-              height: 64, // Give it space
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 10), // Prevent overflow
-              // --- MODIFIED: Call new helper function ---
-              child: _buildOvulationTextWidget(),
-            ),
-            // --- REMOVED old Text widget and commented-out phase text ---
-          ],
+          child: _isLoadingData
+              ? CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation(Colors.black54))
+              : _buildPredictionText(),
         ),
       ),
     );
   }
-  // -------------------------
 
-  // --- NEW HELPER WIDGET FOR RICHTEXT ---
-  Widget _buildOvulationTextWidget() {
-    // Define styles
+  // --- MODIFIED: This widget now builds all 3 text items ---
+  Widget _buildPredictionText() {
+    // Styles for main prediction
     final smallPinkStyle = TextStyle(
       fontSize: 22,
       fontWeight: FontWeight.bold,
@@ -444,311 +405,315 @@ class _PeriodDashboardState extends State<PeriodDashboard> {
       height: 1.2,
     );
     final bigBlackStyle = TextStyle(
-      fontSize: 36, // "big"
+      fontSize: 36,
       fontWeight: FontWeight.bold,
-      color: Colors.black, // "color black"
+      color: Colors.black,
       height: 1.1,
     );
 
-    if (_daysToOvulation == 0) {
-      // Case 1: Ovulation (Predicted)
-      return Text(
-        'Ovulation (Predicted)',
-        textAlign: TextAlign.center,
-        style: smallPinkStyle.copyWith(fontSize: 24),
-      );
-    } else if (_daysToOvulation == 1) {
-      // Case 2: Ovulation in 1 day (NO newline)
-      return RichText(
+    // Styles for fertile window (copied from old widget)
+    final fertileBaseStyle = TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Colors.black.withOpacity(0.7));
+    final fertileValueStyle =
+    const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87);
+
+    // Main prediction widget
+    Widget mainPrediction;
+
+    // Logic based on phase (and image flow)
+    if (currentPhase == 'Menstrual Phase') {
+      mainPrediction = RichText(
         textAlign: TextAlign.center,
         text: TextSpan(
           style: smallPinkStyle,
           children: [
-            TextSpan(text: 'Ovulation in '),
-            TextSpan(text: '1', style: bigBlackStyle),
-            TextSpan(text: ' day'),
+            TextSpan(text: 'Period Day\n'),
+            TextSpan(text: '$cycleDay', style: bigBlackStyle),
           ],
         ),
       );
-    } else if (_daysToOvulation > 1) {
-      // Case 3: Ovulation in \n X days (WITH newline)
-      return RichText(
+    } else if (currentPhase == 'Follicular Phase') {
+      mainPrediction = RichText(
         textAlign: TextAlign.center,
         text: TextSpan(
           style: smallPinkStyle,
           children: [
-            TextSpan(text: 'Ovulation in\n'), // Keep the newline
+            TextSpan(text: 'Ovulation in\n'),
             TextSpan(text: '$_daysToOvulation', style: bigBlackStyle),
             TextSpan(text: ' days'),
           ],
         ),
       );
+    } else if (currentPhase == 'Ovulation Day') {
+      mainPrediction = Text(
+        'Prediction: Ovulation Day',
+        textAlign: TextAlign.center,
+        style: smallPinkStyle.copyWith(fontSize: 24),
+      );
+    } else if (currentPhase == 'Fertile Phase') { // Name change from Ovulation Phase
+      mainPrediction = RichText(
+        textAlign: TextAlign.center,
+        text: TextSpan(
+          style: smallPinkStyle,
+          children: [
+            TextSpan(text: 'Ovulation in\n'),
+            TextSpan(text: '$_daysToOvulation', style: bigBlackStyle),
+            TextSpan(text: ' days'),
+          ],
+        ),
+      );
+    } else if (currentPhase == 'Luteal Phase') {
+      mainPrediction = RichText(
+        textAlign: TextAlign.center,
+        text: TextSpan(
+          style: smallPinkStyle,
+          children: [
+            TextSpan(text: 'Period in\n'),
+            TextSpan(text: '$_daysToPeriod', style: bigBlackStyle),
+            TextSpan(text: ' days'),
+          ],
+        ),
+      );
     } else {
-      // Fallback (e.g., if days are negative, though logic should prevent this)
-      return Text(
-        currentPhase, // Show the phase as a fallback
+      mainPrediction = Text(
+        currentPhase,
         textAlign: TextAlign.center,
         style: smallPinkStyle,
       );
     }
-  }
-  // --- END OF NEW HELPER WIDGET ---
 
-  Widget _buildLogCycleWidget() {
-    // ... (This function is correct, no changes needed) ...
-    return GestureDetector(
-      onTap: _showLogCycleForm, // This now calls the correct function
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.08),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+    // Combine prediction and chance in a Column
+    return Column(
+      // --- MODIFIED: Use spaceEvenly to distribute the 3 items ---
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        // 1. Main Prediction Text
+        Container(
+          height: 70,
+          alignment: Alignment.center,
+          child: mainPrediction,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.edit_outlined, color: Color(0xFFE91E63), size: 18),
-            SizedBox(width: 8),
-            Text(
-              'Log or edit your cycle',
+
+        // 2. Pregnancy Chance Tag
+        if (_pregnancyChance.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: _getPregnancyChanceColors()['background']!,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              _pregnancyChance,
               style: TextStyle(
-                color: Color(0xFFE91E63),
+                color: _getPregnancyChanceColors()['text']!,
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
               ),
             ),
+          ),
+
+        // --- ADDED: Fertile Window Row ---
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.favorite_border, size: 16, color: Color(0xFFE91E63)),
+            const SizedBox(width: 8),
+            Text('Fertile Window: ', style: fertileBaseStyle),
+            Text(fertileWindow, style: fertileValueStyle),
           ],
         ),
-      ),
+      ],
     );
   }
 
-  // --- MODIFIED WIDGET ---
-  Widget _buildPredictions() {
-    final baseStyle = TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: Colors.black.withOpacity(0.7));
-    final valueStyle =
-    const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87);
-    final loadingStyle = TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        fontStyle: FontStyle.italic,
-        color: Colors.black.withOpacity(0.5));
+  // --- DELETED: The _buildPredictions() widget is no longer needed ---
 
+  Widget _buildButtonRow() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Column(
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
+      child: Row(
         children: [
-          // --- REMOVED: Next Period Row ---
-
-          // --- MODIFIED: "Fertile Days" to "Fertile Window" ---
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.favorite_border, size: 16, color: Color(0xFFE91E63)),
-              const SizedBox(width: 8),
-              Text('Fertile Window: ', style: baseStyle), // <-- Text changed
-              _isLoadingData
-                  ? Text('Calculating...', style: loadingStyle)
-                  : Text(fertileWindow, style: valueStyle),
-            ],
+          Expanded(
+            child: _buildStyledButton(
+              text: 'Log & Edit Cycle',
+              onTap: _showLogCycleForm,
+              backgroundColor: const Color(0xFFFCE4EC),
+              textColor: const Color(0xFFC2185B),
+            ),
           ),
-          const SizedBox(height: 15),
-
-          // --- REMOVED: Pregnancy chance text (moved above log button) ---
+          const SizedBox(width: 16),
+          Expanded(
+            child: _buildStyledButton(
+              text: 'Horms & Cycle Info',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => HormonesInfoScreen(
+                      currentPhase: currentPhase,
+                    ),
+                  ),
+                );
+              },
+              backgroundColor: const Color(0xFFE8EAF6),
+              textColor: const Color(0xFF3F51B5),
+            ),
+          ),
         ],
       ),
     );
   }
-  // -------------------------
 
-  // --- MODIFIED WIDGET: For the "Hormones & Cycle Info" button ---
-  Widget _buildHormonesButton() {
-    return Padding(
-      // --- MODIFIED: Reduced padding to make it wider ---
-      padding: const EdgeInsets.symmetric(horizontal: 30.0),
-      child: GestureDetector(
-        onTap: () {
-          // MODIFIED: Use the showModalBottomSheet from the previous step
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            backgroundColor: Colors.transparent,
-            builder: (context) {
-              return HormonesInfoScreen();
-            },
-          );
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14), // Button height
-          decoration: BoxDecoration(
-            color: const Color(0xFFE91E63), // Main pink color
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFE91E63).withOpacity(0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center, // Center the content
-            children: [
-              Icon(Icons.bubble_chart_outlined, color: Colors.white, size: 20),
-              SizedBox(width: 10),
-              Text(
-                'Hormones & Cycle Info',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 15,
-                ),
-              ),
-            ],
+  Widget _buildStyledButton({
+    required String text,
+    required VoidCallback onTap,
+    required Color backgroundColor,
+    required Color textColor,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
           ),
         ),
       ),
     );
   }
-  // -----------------------------------------------------------------
 
-  Widget _buildQuickLogSection() {
-    // ... (This function is correct, no changes needed) ...
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20.0),
-            child: Text(
-              'Quick Log',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Colors.black,
-              ),
+  Widget _buildQuickActionScroller() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24.0),
+          child: Text(
+            'Quick Log',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.black,
             ),
           ),
-          const SizedBox(height: 20),
-          SingleChildScrollView(
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 110,
+          child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(
               children: [
-                _buildQuickLogButton(
+                _buildSquareQuickLogButton(
+                  label: 'Log Period',
                   icon: Icons.water_drop_outlined,
-                  label: 'Period',
-                  color: const Color(0xFFE91E63),
+                  color: const Color(0xFFE57373),
                   onTap: () => Navigator.pushNamed(context, '/log-period')
                       .then((_) => _loadCycleData()),
                 ),
-                const SizedBox(width: 20),
-                _buildQuickLogButton(
+                const SizedBox(width: 16),
+                _buildSquareQuickLogButton(
+                  label: 'Add Symptom',
                   icon: Icons.healing_outlined,
-                  label: 'Symptoms',
-                  color: const Color(0xFFE91E63),
+                  color: const Color(0xFF9575CD),
                   onTap: () => Navigator.pushNamed(context, '/log-symptoms')
                       .then((_) => _loadCycleData()),
                 ),
-                const SizedBox(width: 20),
-                _buildQuickLogButton(
+                const SizedBox(width: 16),
+                _buildSquareQuickLogButton(
+                  label: 'Track Mood',
                   icon: Icons.sentiment_satisfied_outlined,
-                  label: 'Mood',
-                  color: const Color(0xFFE91E63),
+                  color: const Color(0xFFFFD54F),
                   onTap: () => Navigator.pushNamed(context, '/log-mood')
                       .then((_) => _loadCycleData()),
                 ),
-                const SizedBox(width: 20),
-                _buildQuickLogButton(
-                  icon: Icons.favorite_outline,
-                  label: 'Activity',
-                  color: const Color(0xFFE91E63),
+                const SizedBox(width: 16),
+                _buildSquareQuickLogButton(
+                  label: 'Log Activity',
+                  icon: Icons.directions_run,
+                  color: const Color(0xFF4DB6AC),
                   onTap: () => Navigator.pushNamed(context, '/log-activity')
                       .then((_) => _loadCycleData()),
                 ),
-                const SizedBox(width: 20),
-                _buildQuickLogButton(
+                const SizedBox(width: 16),
+                _buildSquareQuickLogButton(
+                  label: 'Add Note',
                   icon: Icons.note_alt_outlined,
-                  label: 'Notes',
-                  color: const Color(0xFFE91E63),
+                  color: const Color(0xFF64B5F6),
                   onTap: () => Navigator.pushNamed(context, '/log-notes')
                       .then((_) => _loadCycleData()),
                 ),
               ],
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildQuickLogButton({
-    required IconData icon,
+  Widget _buildSquareQuickLogButton({
     required String label,
+    required IconData icon,
     required Color color,
     required VoidCallback onTap,
   }) {
-    // ... (This function is correct, no changes needed) ...
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color.withOpacity(0.1),
-              border: Border.all(
-                color: color.withOpacity(0.3),
-                width: 1,
+      child: Container(
+        width: 100,
+        height: 100,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: Colors.white, size: 30),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
-            ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 28,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-        ],
+            )
+          ],
+        ),
       ),
     );
   }
 }
-
 
 
 // -------------------------------------------------------------------
@@ -797,7 +762,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.analytics_outlined),
             activeIcon: Icon(Icons.analytics),
-            label: 'Analytics',
+            label: 'CycleOS',
           ),
         ],
         currentIndex: _selectedIndex,

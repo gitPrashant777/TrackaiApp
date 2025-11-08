@@ -39,6 +39,7 @@ dependencies:
   responsive_framework:
   lucide_icons_flutter:
   firebase_storage:
+  markdown_editor_plus:
 
 dev_dependencies:
   flutter_test:

@@ -321,26 +321,37 @@ class _DashboardSummaryPageState extends State<DashboardSummaryPage>
                   padding: const EdgeInsets.all(16),
                   child: Consumer<AnalyticsProvider>(
                     builder: (context, provider, child) {
+                      // ---
+                      // --- UPDATED BUILD LOGIC ---
+                      // ---
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildConfigureButton(context, provider, isDark),
                           const SizedBox(height: 20),
-                          if (provider.selectedTrackers.isNotEmpty) ...[
+
+                          // Tracker Charts (Conditional)
+                          if (provider.selectedTrackers.isNotEmpty)
                             _buildCustomDashboardSection(
-                                context, provider, isDark),
-                            const SizedBox(height: 24),
-                            _buildOverallSummaryCard(context, provider, isDark),
-                            const SizedBox(height: 24),
-                            // --- REPLACED WIDGET ---
-                            _buildNewBmiCalculator(context, provider),
-                            // --- END REPLACEMENT ---
-                          ] else ...[
+                                context, provider, isDark)
+                          else
                             _buildEmptyState(context, isDark),
-                          ],
+
+                          const SizedBox(height: 24),
+
+                          // Summary (Always Shows)
+                          _buildOverallSummaryCard(context, provider, isDark),
+                          const SizedBox(height: 24),
+
+                          // BMI Calculator (Always Shows)
+                          _buildNewBmiCalculator(context, provider),
+
                           const SizedBox(height: 100),
                         ],
                       );
+                      // ---
+                      // --- END UPDATED BUILD LOGIC ---
+                      // ---
                     },
                   ),
                 ),
@@ -844,44 +855,37 @@ class _DashboardSummaryPageState extends State<DashboardSummaryPage>
   // --- (Replaces old _buildBMICalculator and its helpers)
   // ---
 
+  // ---
+  // --- WIDGET UPDATED ---
+  // ---
   Widget _buildNewBmiCalculator(BuildContext context, AnalyticsProvider provider) {
     // Force a light theme for this card
-    return Card(
-      color: Colors.white,
-      elevation: 2,
-      shadowColor: Colors.grey.withOpacity(0.3),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey[200]!, width: 1),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildNewBmiScale(provider),
-            const SizedBox(height: 24),
-            _buildNewBmiInputForm(context, provider),
-            const SizedBox(height: 24),
-            if (provider.currentBMI != null) ...[
-              _buildNewBmiResult(provider),
-              const SizedBox(height: 24),
-            ],
-            if (_recommendation != null && _healthyWeightRange != null) ...[
-              _buildNewBmiRecommendation(provider),
-            ],
-            const SizedBox(height: 8),
-            const Center(
-              child: Text(
-                "Note: BMI is a general guideline. Consult a healthcare professional.",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ),
-          ],
+    // --- REMOVED: Outer Card and Padding ---
+    return Column( // <--- This is now the root widget
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildNewBmiScale(provider),
+        const SizedBox(height: 24),
+        _buildNewBmiInputForm(context, provider),
+        const SizedBox(height: 24),
+        if (provider.currentBMI != null) ...[
+          _buildNewBmiResult(provider),
+          const SizedBox(height: 24),
+        ],
+        if (_recommendation != null && _healthyWeightRange != null) ...[
+          _buildNewBmiRecommendation(provider),
+        ],
+        const SizedBox(height: 8),
+        const Center(
+          child: Text(
+            "Note: BMI is a general guideline. Consult a healthcare professional.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
         ),
-      ),
+      ],
     );
+    // --- END REMOVAL ---
   }
 
   Widget _buildNewBmiScale(AnalyticsProvider provider) {
@@ -1375,7 +1379,7 @@ class _DashboardSummaryPageState extends State<DashboardSummaryPage>
     } else if (bmiVal >= 25) {
       final double weightToLoseKg = wKg - upperHealthyWeightKg;
       final String weightToLoseDisplay = isKg
-          ? weightToLoseKg.toStringAsFixed(1)
+          ? weightToLoseKg.toString()
           : (weightToLoseKg * 2.20462).toStringAsFixed(1);
       recMsg = "Based on your metrics, a weight loss of approximately $weightToLoseDisplay $weightUnit is suggested to enter the healthy BMI range.";
     } else {
