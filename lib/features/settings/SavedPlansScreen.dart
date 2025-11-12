@@ -166,69 +166,59 @@ class _SavedPlansScreenState extends State<SavedPlansScreen> {
       ),
     );
   }
-
   Widget _buildWorkoutPlanDisplay(bool isDark, Map<String, dynamic> plan) {
     // Safely cast schedule and tips
     final schedule = plan['weeklySchedule'] as List<dynamic>?;
     final tips = plan['generalTips'] as List<dynamic>?;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      // Removed bottom margin to be handled by the ListView
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground(isDark),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderColor(isDark)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(lucide.LucideIcons.dumbbell, size: 24, color: AppColors.black),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  plan['planTitle'] ?? 'Saved Workout Plan',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark)),
-                ),
+    // --- MODIFIED: Removed the outer Container ---
+    return Column( // Directly return the Column
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(lucide.LucideIcons.dumbbell, size: 24, color: AppColors.black),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                plan['planTitle'] ?? 'Saved Workout Plan',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark)),
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            plan['introduction'] ?? 'Your personalized workout plan.',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary(isDark)),
-          ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          plan['introduction'] ?? 'Your personalized workout plan.',
+          style: TextStyle(fontSize: 14, color: AppColors.textSecondary(isDark)),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Workout Schedule',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark)),
+        ),
+        const SizedBox(height: 12),
+        if (schedule != null && schedule.isNotEmpty)
+        // UPDATED: Call the new card widget
+          ...schedule.map((dayData) => _buildWorkoutDayCard(dayData as Map<String, dynamic>, isDark)).toList()
+        else
+          Text('No schedule provided.', style: TextStyle(color: AppColors.textSecondary(isDark))),
+        if (tips != null && tips.isNotEmpty) ...[
           const SizedBox(height: 24),
           Text(
-            'Workout Schedule',
+            'Helpful Tips',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark)),
           ),
           const SizedBox(height: 12),
-          if (schedule != null && schedule.isNotEmpty)
-          // UPDATED: Call the new card widget
-            ...schedule.map((dayData) => _buildWorkoutDayCard(dayData as Map<String, dynamic>, isDark)).toList()
-          else
-            Text('No schedule provided.', style: TextStyle(color: AppColors.textSecondary(isDark))),
-          if (tips != null && tips.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            Text(
-              'Helpful Tips',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark)),
-            ),
-            const SizedBox(height: 12),
-            ...tips.map((tip) => ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
-              title: Text(tip.toString(), style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 15)),
-            )).toList(),
-          ],
+          ...tips.map((tip) => ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
+            title: Text(tip.toString(), style: TextStyle(color: AppColors.textSecondary(isDark), fontSize: 15)),
+          )).toList(),
         ],
-      ),
+      ],
     );
   }
-
   /// --- WIDGET FOR MEAL PLAN DISPLAY ---
   Widget _buildMealPlanDisplay(bool isDark, Map<String, dynamic> plan) {
     final summary = plan['planSummary'] as Map<String, dynamic>?;
@@ -238,84 +228,73 @@ class _SavedPlansScreenState extends State<SavedPlansScreen> {
     final dynamic rawGroceryList = plan['groceryList'];
     final groceryList = rawGroceryList != null ? List<String>.from(rawGroceryList) : null;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      // Removed bottom margin to be handled by the ListView
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground(isDark),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderColor(isDark)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.restaurant, size: 24, color: AppColors.black),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  plan['planTitle'] ?? 'Saved Meal Plan',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark)),
-                ),
+    // --- MODIFIED: REMOVED THE OUTER CONTAINER ---
+    return Column( // Directly return the Column content
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Retained the header for each meal plan block
+        Row(
+          children: [
+            Icon(Icons.restaurant, size: 24, color: AppColors.black),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                plan['planTitle'] ?? 'Saved Meal Plan',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark)),
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            plan['introduction'] ?? 'A ${summary?['totalDays'] ?? 'N/A'} day meal plan.',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary(isDark)),
-          ),
-          const SizedBox(height: 24),
-          // Plan Details
-          Text('Plan Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark))),
-          const SizedBox(height: 12),
-          if (summary != null) ...[
-            _buildDetailRow('Diet Type', summary['dietType'] ?? 'N/A', isDark),
-            _buildDetailRow('Duration', '${summary['totalDays'] ?? 'N/A'} Days', isDark),
-            _buildDetailRow('Avg. Calories', '${summary['avgDailyCalories'] ?? 'N/A'} kcal', isDark),
-          ],
-          const SizedBox(height: 24),
-          // Daily Meals
-          Text('Daily Meal Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark))),
-          const SizedBox(height: 12),
-
-          // --- CORRECTED SORTING LOGIC (One single, clean block) ---
-          if (dailyPlans.isNotEmpty)
-            ...() {
-              final sortedDailyPlans = dailyPlans.toList()
-                ..sort((a, b) {
-                  final aNum = int.tryParse(a.key.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-                  final bNum = int.tryParse(b.key.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-                  return aNum.compareTo(bNum);
-                });
-
-              return sortedDailyPlans.map((entry) {
-                final dayName = entry.key;
-                final dayMeals = entry.value as Map<String, dynamic>;
-                final totalCalories = dayMeals['totalCalories'] as int? ?? 0;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  // UPDATED: Call the new card widget
-                  child: _buildMealDayCard(isDark, dayName, dayMeals, totalCalories),
-                );
-              }).toList();
-            }(), // Self-executing function ends here
-
-          if (groceryList != null && groceryList.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            TextButton.icon(
-              // Passed the correctly typed List<String>
-              onPressed: () => _showGroceryListDialog(context, isDark, groceryList),
-              icon: Icon(Icons.shopping_cart, size: 20, color: AppColors.textPrimary(isDark)),
-              label: Text('View Grocery List', style: TextStyle(color: AppColors.textPrimary(isDark), fontWeight: FontWeight.w600)),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        Text(
+          plan['introduction'] ?? 'A ${summary?['totalDays'] ?? 'N/A'} day meal plan.',
+          style: TextStyle(fontSize: 14, color: AppColors.textSecondary(isDark)),
+        ),
+        const SizedBox(height: 24),
+        // Plan Details
+        Text('Plan Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark))),
+        const SizedBox(height: 12),
+        if (summary != null) ...[
+          _buildDetailRow('Diet Type', summary['dietType'] ?? 'N/A', isDark),
+          _buildDetailRow('Duration', '${summary['totalDays'] ?? 'N/A'} Days', isDark),
+          _buildDetailRow('Avg. Calories', '${summary['avgDailyCalories'] ?? 'N/A'} kcal', isDark),
         ],
-      ),
+        const SizedBox(height: 24),
+        // Daily Meals
+        Text('Daily Meal Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary(isDark))),
+        const SizedBox(height: 12),
+
+        if (dailyPlans.isNotEmpty)
+          ...() {
+            final sortedDailyPlans = dailyPlans.toList()
+              ..sort((a, b) {
+                final aNum = int.tryParse(a.key.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                final bNum = int.tryParse(b.key.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+                return aNum.compareTo(bNum);
+              });
+
+            return sortedDailyPlans.map((entry) {
+              final dayName = entry.key;
+              final dayMeals = entry.value as Map<String, dynamic>;
+              final totalCalories = dayMeals['totalCalories'] as int? ?? 0;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: _buildMealDayCard(isDark, dayName, dayMeals, totalCalories),
+              );
+            }).toList();
+          }(),
+
+        if (groceryList != null && groceryList.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          TextButton.icon(
+            onPressed: () => _showGroceryListDialog(context, isDark, groceryList),
+            icon: Icon(Icons.shopping_cart, size: 20, color: AppColors.textPrimary(isDark)),
+            label: Text('View Grocery List', style: TextStyle(color: AppColors.textPrimary(isDark), fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ],
     );
   }
-
   // Parameter is now correctly typed List<String>
   void _showGroceryListDialog(BuildContext context, bool isDark, List<String> groceryList) {
     showDialog(
@@ -558,12 +537,15 @@ class _SavedPlansScreenState extends State<SavedPlansScreen> {
 // -------------------------------------------------------------------------
 // COPIED FROM AIMealPlannerResults.dart
 // RENAMED to _SavedMealDayDetailsPage
+// MODIFIED: Removed grey box, changed title color
 // -------------------------------------------------------------------------
 class _SavedMealDayDetailsPage extends StatelessWidget {
   final Map<String, dynamic> dayData;
   final bool isDark;
 
-  const _SavedMealDayDetailsPage({Key? key, required this.dayData, required this.isDark}) : super(key: key);
+  const _SavedMealDayDetailsPage(
+      {Key? key, required this.dayData, required this.isDark})
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -573,7 +555,7 @@ class _SavedMealDayDetailsPage extends StatelessWidget {
 
     final textColor = isDark ? Colors.white : Colors.black;
     final backgroundColor = isDark ? Colors.black : Colors.white;
-    final cardColor = Colors.grey[100];
+    // final cardColor = Colors.grey[100]; // No longer needed
 
     return Scaffold(
       backgroundColor: backgroundColor,
@@ -631,25 +613,26 @@ class _SavedMealDayDetailsPage extends StatelessWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Meal Type Header (outside the grey box)
+                  // --- FIX 1: Meal Type Header color changed to grey ---
                   Text(
                     mealType.toUpperCase(),
                     style: TextStyle(
                       fontSize: 20, // 2x bigger
                       fontWeight: FontWeight.bold,
-                      color: textColor,
+                      color: Colors.grey, // <-- MODIFIED
                     ),
                   ),
                   const SizedBox(height: 12),
 
-                  // Grey Box with meal details
+                  // --- FIX 2: Removed decoration from Container ---
                   Container(
                     width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: cardColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.all(16),
+                    // decoration: BoxDecoration( // <-- REMOVED
+                    //   color: cardColor,
+                    //   borderRadius: BorderRadius.circular(8),
+                    // ),
+                    padding: const EdgeInsets.all(
+                        16), // Kept padding for spacing
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -712,7 +695,6 @@ class _SavedMealDayDetailsPage extends StatelessWidget {
     );
   }
 }
-
 
 // -------------------------------------------------------------------------
 // COPIED FROM smartGymkit.dart

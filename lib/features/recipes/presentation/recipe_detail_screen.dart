@@ -373,9 +373,11 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
   }
 
   Widget _buildIngredientsSection(bool isDarkTheme) {
-    final ingredients = List<String>.from(recipe!['ingredients'] ?? []);
+// *** MODIFIED ***: Ingredients are now a Map
+    final ingredients = (recipe!['ingredients'] as Map<String, dynamic>?) ?? {};
     final servings = (recipe!['servings'] as num?)?.toInt() ?? 1;
 
+    if (ingredients.isEmpty) return const SizedBox.shrink(); // Add this check
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -406,19 +408,33 @@ class _RecipeDetailScreenState extends State<RecipeDetailScreen> {
           ],
         ),
         const SizedBox(height: 16),
-        ...ingredients.map((ingredient) {
+        // *** MODIFIED ***: Iterate over Map entries
+        ...ingredients.entries.map((entry) {
+          final String name = entry.key;
+          final String amount = entry.value.toString();
+
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            padding: const EdgeInsets.symmetric(vertical: 10.0),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Text(
-                    ingredient,
+                    name, // Ingredient Name
                     style: TextStyle(
                       color: AppColors.textPrimary(isDarkTheme),
                       fontSize: 16,
-                      height: 1.4,
+                      fontWeight: FontWeight.w600, // Bolder name
                     ),
+                  ),
+                ),
+                SizedBox(width: 16),
+                Text(
+                  amount, // Ingredient Amount
+                  style: TextStyle(
+                    color: AppColors.textPrimary(isDarkTheme),
+                    fontWeight: FontWeight.bold,// Lighter amount
+                    fontSize: 16,
                   ),
                 ),
               ],

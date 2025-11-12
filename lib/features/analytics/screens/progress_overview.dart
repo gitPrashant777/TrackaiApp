@@ -2264,6 +2264,8 @@ class _ProgressOverviewPageState extends State<ProgressOverviewPage> {
   Widget _buildDayColumn(String day, Map<String, double> dayMacros,
       double totalValue, bool isDark, double chartMaxValue) {
     const double chartHeight = 80.0; // Max height of the bar itself
+    // --- ADDED THIS ---
+    const double xAxisHeight = 24.0; // Fixed height for the axis area
 
     // Define macro colors (from your NutritionScannerScreen)
     const proteinColor = Colors.amber;
@@ -2288,11 +2290,12 @@ class _ProgressOverviewPageState extends State<ProgressOverviewPage> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
+        // This is the bar
         Container(
           width: 16,
-          height: chartHeight,
+          height: chartHeight, // This is the 80px bar area
           decoration: BoxDecoration(
-            color: Colors.transparent, // <-- FIX: Make it transparent
+            color: Colors.transparent,
             borderRadius: BorderRadius.circular(4),
           ),
           child: ClipRRect(
@@ -2301,7 +2304,7 @@ class _ProgressOverviewPageState extends State<ProgressOverviewPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                // Stacked from bottom to top
+                // Stacked from top to bottom
                 Container(
                     height: proteinHeight.clamp(0, chartHeight),
                     color: proteinColor),
@@ -2317,20 +2320,23 @@ class _ProgressOverviewPageState extends State<ProgressOverviewPage> {
             ),
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          day,
-          style: TextStyle(
-            fontSize: 10,
-            color: AppColors.textSecondary(isDark),
+
+        Container(
+          height: xAxisHeight, // 24.0
+          alignment: Alignment.topCenter, // Puts the text at the top of this box
+          padding: const EdgeInsets.only(top: 4.0), // This adds the 4px space
+          child: Text(
+            day,
+            style: TextStyle(
+              fontSize: 10,
+              color: AppColors.textSecondary(isDark),
+            ),
           ),
         ),
-
-
+        // --- END OF FIX ---
       ],
     );
   }
-
   Widget _buildNoNutritionData(bool isDark) {
     return Container(
       padding: const EdgeInsets.all(12),

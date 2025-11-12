@@ -39,7 +39,10 @@ class _HomescreenState extends State<Homescreen> {
   bool _isLoadingGoals = true;
   String? _goalsError;
 
-  // --- REMOVED Streak data (now handled by homepage.dart) ---
+  // --- NEW: State for streak calendar ---
+  Map<String, bool> _streakData = {};
+  bool _isLoadingStreakData = true;
+  // ------------------------------------
 
   // --- NEW: State for collapsible list ---
   bool _showAllEntries = false;
@@ -51,9 +54,9 @@ class _HomescreenState extends State<Homescreen> {
   void initState() {
     super.initState();
     _loadGoalsData();
-    // --- REMOVED: _loadStreakData(); ---
-    // --- REMOVED: _recordDailyLogin(); ---
     _loadAccountCreationDate();
+    // --- ADDED: Load streak data for the initial week ---
+    _loadStreakDataForWeek(_getWeekDates(DateTime.now()));
   }
 
   Future<void> _loadGoalsData() async {
@@ -65,38 +68,68 @@ class _HomescreenState extends State<Homescreen> {
 
       final goalsData = await GoalsService.getGoals();
 
-      setState(() {
-        _goalsData = goalsData;
-        _isLoadingGoals = false;
-      });
+      if (mounted) {
+        setState(() {
+          _goalsData = goalsData;
+          _isLoadingGoals = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _goalsError = e.toString();
-        _isLoadingGoals = false;
-      });
+      if (mounted) {
+        setState(() {
+          _goalsError = e.toString();
+          _isLoadingGoals = false;
+        });
+      }
+    }
+  }
+
+  // --- NEW: Method to fetch streak data for the calendar ---
+  Future<void> _loadStreakDataForWeek(List<DateTime> weekDates) async {
+    if (weekDates.isEmpty) return;
+    setState(() => _isLoadingStreakData = true);
+    try {
+      // NEW
+      final data = await StreakService.getStreakDataForRange(
+        weekDates.first.subtract(const Duration(days: 1)), // <-- Fetch one day earlier
+        weekDates.last,
+      );
+      if (mounted) {
+        setState(() {
+          _streakData = data;
+          _isLoadingStreakData = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingStreakData = false);
+      }
+      print("Error loading week streak data: $e");
     }
   }
 
   Future<void> _loadAccountCreationDate() async {
     try {
       _accountCreationDate = await StreakService.getAccountCreationDate();
-      setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
     } catch (e) {
       _accountCreationDate = DateTime.now();
     }
   }
 
-  // --- REMOVED: _loadStreakData() method ---
-  // --- REMOVED: _recordDailyLogin() method ---
-
+  // --- UPDATED: Now re-fetches streak data for the new week ---
   void _navigateToWeek(int direction) {
     setState(() {
       _currentDate = _currentDate.add(Duration(days: 7 * direction));
+      // Re-fetch data for the new week
+      _loadStreakDataForWeek(_getWeekDates(_currentDate));
     });
-    // --- REMOVED: _loadStreakData(); ---
   }
 
   List<DateTime> _getWeekDates(DateTime date) {
+    // Assuming week starts on Monday (weekday == 1)
     final startOfWeek = date.subtract(Duration(days: date.weekday - 1));
     return List.generate(7, (index) => startOfWeek.add(Duration(days: index)));
   }
@@ -150,7 +183,6 @@ class _HomescreenState extends State<Homescreen> {
   }
 
   @override
-  @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
@@ -164,19 +196,17 @@ class _HomescreenState extends State<Homescreen> {
             horizontal: screenWidth * 0.04,
             vertical: screenHeight * 0.02,
           ),
-          // ✅ Wrap the child of SingleChildScrollView
           child: Consumer<DailyLogProvider>(
             builder: (context, logProvider, child) {
-              // Now all your widgets can access 'logProvider.consumedTotals'
-              // and 'logProvider.entries'
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Week Calendar (no change needed)
-                  _buildWeekCalendar(screenWidth, screenHeight, weekDates),
+                  // --- UPDATED: Pass streak data to calendar ---
+                  _buildWeekCalendar(
+                      screenWidth, screenHeight, weekDates, _streakData),
                   SizedBox(height: screenHeight * 0.03),
 
-                  _buildMainContentPage(logProvider), // <-- FIX: Pass provider
+                  _buildMainContentPage(logProvider),
 
                   SizedBox(height: screenHeight * 0.03),
 
@@ -184,27 +214,26 @@ class _HomescreenState extends State<Homescreen> {
 
                   SizedBox(height: screenHeight * 0.03),
 
-                  // AI Lab (no change needed)
                   _buildFullAILabSection(),
                   SizedBox(height: screenHeight * 0.03),
 
-                  // Wellness Tips (no change needed)
                   _buildWellnessTipsSection(),
                   SizedBox(height: screenHeight * 0.04),
                 ],
               );
-            }, //
-          ), // ✅ FIX: Added closing parenthesis for Consumer
-        ), // ✅ FIX: Added closing parenthesis for SingleChildScrollView
-      ), // ✅ FIX: Added closing parenthesis for SafeArea
-    ); // ✅ FIX: Added closing parenthesis and semicolon for Scaffold
+            },
+          ),
+        ),
+      ),
+    );
   }
 
-// NEW: Week Calendar with ALL dashed circles and today highlighted
+  // --- WIDGET UPDATED: To accept streak data and show colors ---
   Widget _buildWeekCalendar(
       double screenWidth,
       double screenHeight,
       List<DateTime> weekDates,
+      Map<String, bool> streakData, // <-- ADDED
       ) {
     return Container(
       padding: EdgeInsets.all(screenWidth * 0.04),
@@ -213,7 +242,8 @@ class _HomescreenState extends State<Homescreen> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: weekDates.asMap().entries.map((entry) {
           final date = entry.value;
-          final dayLetters = ['F', 'S', 'S', 'M', 'T', 'W', 'T'];
+          // --- UPDATED: Weekday letters to match your new logic (Mon-Sun) ---
+          final dayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
           final dayLetter = dayLetters[entry.key];
 
           final today = DateTime.now();
@@ -221,28 +251,24 @@ class _HomescreenState extends State<Homescreen> {
               date.month == today.month &&
               date.year == today.year;
 
+          // --- ADDED: Check streak data ---
+          final dateString = StreakService.formatDateStatic(date);
+          final bool isActive = streakData[dateString] ?? false;
+// --- ADD THESE 3 LINES ---
+          final prevDate = date.subtract(const Duration(days: 1));
+          final prevDateString = StreakService.formatDateStatic(prevDate);
+          final bool prevDayWasActive = streakData[prevDateString] ?? false;
+// --- END OF ADDITION ---
           return Column(
             children: [
-              // All day letters with dashed circle borders
-              CustomPaint(
-                painter: DashedCirclePainter(
-                  color: Colors.grey[400]!,
-                  strokeWidth: 1.5,
-                ),
-                child: Container(
-                  width: screenWidth * 0.1,
-                  height: screenWidth * 0.1,
-                  child: Center(
-                    child: Text(
-                      dayLetter,
-                      style: TextStyle(
-                        color: Colors.black87,
-                        fontSize: screenWidth * 0.04,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ),
+              // --- UPDATED: Use new _buildDayCircle widget ---
+              _buildDayCircle(
+                date: date,
+                dayLetter: dayLetter,
+                isActive: isActive,
+                prevDayWasActive: prevDayWasActive, // <-- PASS THE NEW VALUE HERE
+                isToday: isToday,
+                size: screenWidth * 0.1,
               ),
               SizedBox(height: screenHeight * 0.008),
               // Date number - bold if today
@@ -260,8 +286,72 @@ class _HomescreenState extends State<Homescreen> {
       ),
     );
   }
+  Widget _buildDayCircle({
+    required DateTime date,
+    required String dayLetter,
+    required bool isActive,
+    required bool prevDayWasActive, // <-- ADD THIS PARAMETER
+    required bool isToday,
+    required double size,
+  }) {
+    final now = DateTime.now();
+    // A day is in the past if it's before today (ignoring time)
+    final isPast = date.isBefore(DateTime(now.year, now.month, now.day));
 
-// Main Content Page
+    Color circleColor;
+    Color textColor;
+    BoxBorder? border;
+    Widget? painterChild;
+
+    if (isActive) {
+      // GREEN: Active streak day
+      // --- MODIFIED: Added .withOpacity(0.8) ---
+      circleColor = Colors.green[700]!.withOpacity(0.5);
+      textColor = Colors.white;
+    } else if (isPast && !isToday) {
+      // RED: Missed day in the past
+      // --- MODIFIED: Added .withOpacity(0.8) ---
+      circleColor = Colors.red[700]!.withOpacity(0.5);
+      textColor = Colors.white;
+    } else {
+      // GREY DOTTED: Today or future, not yet active
+      circleColor = Colors.transparent;
+      textColor = Colors.black87;
+      painterChild = CustomPaint(
+        painter: DashedCirclePainter(
+          // --- MODIFIED: Added .withOpacity(0.8) ---
+          color: Colors.grey[400]!.withOpacity(0.8),
+          strokeWidth: 1.5,
+        ),
+      );
+    }
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: circleColor,
+        shape: BoxShape.circle,
+        border: border,
+      ),
+      child: Stack(
+        children: [
+          if (painterChild != null)
+            Positioned.fill(child: painterChild),
+          Center(
+            child: Text(
+              dayLetter,
+              style: TextStyle(
+                color: textColor,
+                fontSize: size * 0.4,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  // Main Content Page
   Widget _buildMainContentPage(DailyLogProvider logProvider) {
     // <-- UPDATED
     final screenWidth = MediaQuery.of(context).size.width;
@@ -736,7 +826,8 @@ class _HomescreenState extends State<Homescreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => MealDetailScreen(entry: entry), // Pass the entry
+            builder: (context) =>
+                MealDetailScreen(entry: entry), // Pass the entry
           ),
         );
         // -----------------------------
@@ -770,7 +861,8 @@ class _HomescreenState extends State<Homescreen> {
                   ),
                 ),
                 Text(
-                  DateFormat('hh:mm a').format(entry.timestamp), // e.g., 05:43 PM
+                  DateFormat('hh:mm a')
+                      .format(entry.timestamp), // e.g., 05:43 PM
                   style:
                   TextStyle(color: Colors.grey[600], fontSize: sw * 0.03),
                 ),
@@ -955,7 +1047,8 @@ class _HomescreenState extends State<Homescreen> {
   // --- WIDGET MODIFIED ---
   Widget _aiLabCard(String title, String desc, IconData icon, String action,
       double height, double sw, double sh,
-      {bool isFullWidth = false}) { // <-- MODIFIED
+      {bool isFullWidth = false}) {
+    // <-- MODIFIED
     return GestureDetector(
       onTap: () => _handleAILabAction(action),
       child: Container(
@@ -1140,7 +1233,8 @@ class _HomescreenState extends State<Homescreen> {
                         // Add rounded corners
                         borderRadius: BorderRadius.circular(12.0),
                         child: Image.file(
-                          File(entry.imagePath!), // Create a File object from the path
+                          File(entry
+                              .imagePath!), // Create a File object from the path
                           height: sh * 0.2, // Set a fixed height
                           width: double.infinity, // Take full width
                           fit: BoxFit.cover, // Cover the area
@@ -1192,16 +1286,22 @@ class _HomescreenState extends State<Homescreen> {
                       Expanded(
                         child: _buildNutrientCard(
                           // Ensure this uses light theme styles
-                          'Protein', '${entry.protein}', 'g',
-                          lucide.LucideIcons.zap, Colors.amber,
+                          'Protein',
+                          '${entry.protein}',
+                          'g',
+                          lucide.LucideIcons.zap,
+                          Colors.amber,
                         ),
                       ),
                       SizedBox(width: sw * 0.03),
                       Expanded(
                         child: _buildNutrientCard(
                           // Ensure this uses light theme styles
-                          'Carbs', '${entry.carbs}', 'g',
-                          lucide.LucideIcons.wheat, Colors.green,
+                          'Carbs',
+                          '${entry.carbs}',
+                          'g',
+                          lucide.LucideIcons.wheat,
+                          Colors.green,
                         ),
                       ),
                     ],
@@ -1212,7 +1312,10 @@ class _HomescreenState extends State<Homescreen> {
                       Expanded(
                         child: _buildNutrientCard(
                           // Ensure this uses light theme styles
-                          'Fat', '${entry.fat}', 'g', lucide.LucideIcons.droplet,
+                          'Fat',
+                          '${entry.fat}',
+                          'g',
+                          lucide.LucideIcons.droplet,
                           Colors.blue,
                         ),
                       ),
@@ -1220,8 +1323,11 @@ class _HomescreenState extends State<Homescreen> {
                       Expanded(
                         child: _buildNutrientCard(
                           // Ensure this uses light theme styles
-                          'Fiber', '${entry.fiber}', 'g',
-                          lucide.LucideIcons.leaf, Colors.orange,
+                          'Fiber',
+                          '${entry.fiber}',
+                          'g',
+                          lucide.LucideIcons.leaf,
+                          Colors.orange,
                         ),
                       ),
                     ],
@@ -1342,8 +1448,8 @@ class _HomescreenState extends State<Homescreen> {
 
 // --- END OF METHOD ---
   // --- WIDGET MODIFIED ---
-  Widget _comingSoonCard(
-      String title, String desc, IconData icon, double height, double sw, double sh) {
+  Widget _comingSoonCard(String title, String desc, IconData icon, double height,
+      double sw, double sh) {
     return GestureDetector(
       onTap: () => _showSnackBar('Feature coming soon!'),
       child: Container(

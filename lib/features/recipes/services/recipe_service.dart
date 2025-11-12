@@ -13,7 +13,7 @@ class RecipeService {
   static Future<String> createRecipe({
     required String title,
     required String description,
-    required List<String> ingredients,
+    required Map<String, String> ingredients,
     required List<String> instructions,
     required String difficulty,
     required int prepTime,
@@ -71,7 +71,7 @@ class RecipeService {
       final recipeData = {
         'title': title.trim(),
         'description': description.trim(),
-        'ingredients': ingredients.map((e) => e.trim()).toList(),
+        'ingredients': ingredients,
         'instructions': instructions.map((e) => e.trim()).toList(),
         'difficulty': difficulty,
         'prepTime': prepTime,

@@ -18,6 +18,7 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
+
   // final _ingredientsController = TextEditingController(); // *** REMOVED ***
   final _instructionsController = TextEditingController();
   final _prepTimeController = TextEditingController();
@@ -28,7 +29,9 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
   final _caloriesController = TextEditingController();
 
   // *** NEW ***: Controllers for dynamic Ingredients
-  final List<TextEditingController> _ingredientControllers = [];
+// *** MODIFIED ***: Controllers for dynamic Ingredients (Name, Amount)
+  final List<MapEntry<TextEditingController, TextEditingController>>
+  _ingredientControllers = [];
 
   // *** NEW ***: Controller for Tags input
   final _tagInputController = TextEditingController();
@@ -71,8 +74,9 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
     _caloriesController.dispose();
     _tagInputController.dispose();
 
-    for (var controller in _ingredientControllers) {
-      controller.dispose();
+    for (var entry in _ingredientControllers) {
+      entry.key.dispose();
+      entry.value.dispose();
     }
     for (var entry in _nutritionControllers) {
       entry.key.dispose();
@@ -81,16 +85,19 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
     super.dispose();
   }
 
-  // *** NEW ***: Helper functions for Ingredients
+// *** MODIFIED ***: Helper functions for Ingredients (Name, Amount)
   void _addIngredientField() {
     setState(() {
-      _ingredientControllers.add(TextEditingController());
+      _ingredientControllers.add(
+        MapEntry(TextEditingController(), TextEditingController()),
+      );
     });
   }
 
   void _removeIngredientField(int index) {
     setState(() {
-      _ingredientControllers[index].dispose();
+      _ingredientControllers[index].key.dispose();
+      _ingredientControllers[index].value.dispose();
       _ingredientControllers.removeAt(index);
     });
   }
@@ -164,15 +171,27 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
     try {
       setState(() => _uploadProgress = 0.2);
 
-      // *** MODIFIED ***: Process dynamic ingredients
-      final ingredients = _ingredientControllers
-          .map((controller) => controller.text.trim())
-          .where((ingredient) => ingredient.isNotEmpty)
-          .toList();
+// *** MODIFIED ***: Process dynamic ingredients into a Map
+      final Map<String, String> ingredientsMap = {};
+      for (var entry in _ingredientControllers) {
+        final name = entry.key.text.trim();
+        final amount = entry.value.text.trim();
+        if (name.isNotEmpty && amount.isNotEmpty) {
+          ingredientsMap[name] = amount;
+        }
+      }
+
+      // Check if ingredients are provided (this replaces the old check)
+      if (ingredientsMap.isEmpty) {
+        throw RecipeException('At least one ingredient is required.');
+      }
 
       final instructions = _instructionsController.text
           .split('\n')
-          .where((instruction) => instruction.trim().isNotEmpty)
+          .where((instruction) =>
+      instruction
+          .trim()
+          .isNotEmpty)
           .toList();
 
       // *** MODIFIED ***: Process nutrition data
@@ -198,7 +217,7 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
       final recipeId = await RecipeService.createRecipe(
         title: _titleController.text,
         description: _descriptionController.text,
-        ingredients: ingredients,
+        ingredients: ingredientsMap,
         instructions: instructions,
         difficulty: _selectedDifficulty,
         prepTime: int.tryParse(_prepTimeController.text) ?? 0,
@@ -207,7 +226,8 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
         imageFile: _selectedImage,
         category: _selectedCategory,
         nutrition: nutritionFacts,
-        tags: _tags, // *** MODIFIED ***
+        tags: _tags,
+        // *** MODIFIED ***
         calories: calories, // *** NEW ***
       );
 
@@ -239,9 +259,11 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
     _tagInputController.clear();
     _tags.clear();
 
-    for (var controller in _ingredientControllers) {
-      controller.dispose();
+    for (var entry in _ingredientControllers) {
+      entry.key.dispose();
+      entry.value.dispose();
     }
+
     _ingredientControllers.clear();
 
     for (var entry in _nutritionControllers) {
@@ -262,7 +284,10 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
     return Consumer<ThemeProvider>(
       builder: (context, themeProvider, child) {
         final isDarkTheme = themeProvider.isDarkMode;
-        final screenWidth = MediaQuery.of(context).size.width;
+        final screenWidth = MediaQuery
+            .of(context)
+            .size
+            .width;
 
         return Scaffold(
           backgroundColor: AppColors.background(isDarkTheme),
@@ -465,7 +490,8 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
               itemBuilder: (context, index) {
                 return _buildIngredientRow(
                   index,
-                  _ingredientControllers[index],
+                  _ingredientControllers[index].key, // Pass name controller
+                  _ingredientControllers[index].value, // Pass amount controller
                   isDarkTheme,
                 );
               },
@@ -476,21 +502,22 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
   }
 
   // *** NEW ***: Helper for a single ingredient row
-  Widget _buildIngredientRow(
-      int index,
-      TextEditingController controller,
-      bool isDarkTheme,
-      ) {
+  // *** MODIFIED ***: Helper for a single ingredient row (Name, Amount)
+  Widget _buildIngredientRow(int index,
+      TextEditingController nameController,
+      TextEditingController amountController,
+      bool isDarkTheme,) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
         children: [
           Expanded(
+            flex: 2, // Ingredient name
             child: TextFormField(
-              controller: controller,
+              controller: nameController,
               decoration: InputDecoration(
                 labelText: 'Ingredient ${index + 1}',
-                hintText: 'e.g., 2 cups Flour',
+                hintText: 'e.g., Flour',
                 border:
                 OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 contentPadding:
@@ -498,8 +525,34 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
               ),
               style: const TextStyle(fontSize: 14),
               validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Ingredient cannot be empty';
+                if (value == null || value
+                    .trim()
+                    .isEmpty) {
+                  return 'Name required';
+                }
+                return null;
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            flex: 2, // Ingredient amount
+            child: TextFormField(
+              controller: amountController,
+              decoration: InputDecoration(
+                labelText: 'Amount',
+                hintText: 'e.g., 2 cups',
+                border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                contentPadding:
+                const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+              ),
+              style: const TextStyle(fontSize: 14),
+              validator: (value) {
+                if (value == null || value
+                    .trim()
+                    .isEmpty) {
+                  return 'Amount required';
                 }
                 return null;
               },
@@ -507,7 +560,8 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
           ),
           const SizedBox(width: 4),
           IconButton(
-            icon: Icon(Icons.remove_circle, color: Colors.red.shade400, size: 20),
+            icon: Icon(
+                Icons.remove_circle, color: Colors.red.shade400, size: 20),
             onPressed: () => _removeIngredientField(index),
             tooltip: 'Remove',
           ),
@@ -515,6 +569,7 @@ class _AdminRecipeUploadScreenState extends State<AdminRecipeUploadScreen> {
       ),
     );
   }
+
 
   // *** NEW ***: Widget for dynamic nutrition fields
   Widget _buildNutritionSection(bool isDarkTheme, double screenWidth) {

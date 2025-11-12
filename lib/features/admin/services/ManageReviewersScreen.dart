@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import '../../../library/services/cloudinary_service.dart';
+import '../admin_panel_screen.dart';
 
 // Make sure this path is correct
 
@@ -305,11 +306,33 @@ class _ManageReviewersScreenState extends State<ManageReviewersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return WillPopScope(
+        onWillPop: () async {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const AdminPanelScreen()),
+          );
+          return false;
+        },
+
+      child: Scaffold(
       backgroundColor: const Color(0xFFF5E6F1), // Pinkish theme
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        leading: BackButton(
+          color: Colors.black, // Match your title style
+          onPressed: () {
+            // Check if we can go back
+
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const AdminPanelScreen()),
+            );
+
+            // If no, do nothing (this prevents the app from closing)
+          },
+        ),
         title: const Text(
           'Manage Reviewers',
           style: TextStyle(color: Colors.black),
@@ -331,6 +354,7 @@ class _ManageReviewersScreenState extends State<ManageReviewersScreen> {
           ],
         ),
       ),
+      )
     );
   }
 
@@ -396,6 +420,7 @@ class _ManageReviewersScreenState extends State<ManageReviewersScreen> {
           ),
         ],
       ),
+
     );
   }
 

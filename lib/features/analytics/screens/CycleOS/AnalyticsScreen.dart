@@ -98,7 +98,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           children: [
             // --- MODIFIED: Replaced Icon with Image.asset ---
             ClipRRect(
-              borderRadius: BorderRadius.circular(6.0), // Optional: adds rounded corners
+              borderRadius:
+              BorderRadius.circular(6.0), // Optional: adds rounded corners
               child: Image.asset(
                 'assets/images/os.jpg',
                 width: 28, // You can adjust the size
@@ -136,16 +137,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               },
             ),
           ),
+
+          // --- MODIFICATION START ---
           // Loading indicator
           if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0),
-              child: Center(
-                child: CircularProgressIndicator(
-                  color: Color(0xFFE91E63),
-                ),
-              ),
-            ),
+            _buildTypingIndicator(), // <-- Yahan change kiya hai
+          // --- MODIFICATION END ---
+
           // Suggestion chips
           if (_messages.length <= 1)
             Padding(
@@ -172,6 +170,56 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       ),
     );
   }
+
+  // --- NEW WIDGET: Typing Indicator ---
+  Widget _buildTypingIndicator() {
+    return Padding(
+      // Padding taaki list se align ho
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white, // Bot ka bubble color
+            borderRadius: BorderRadius.circular(20).copyWith(
+              bottomLeft: const Radius.circular(4),
+              bottomRight: const Radius.circular(20),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              )
+            ],
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min, // Important!
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: Color(0xFFE91E63),
+                  strokeWidth: 2,
+                ),
+              ),
+              SizedBox(width: 12),
+              Text(
+                "Typing...",
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  // --- END OF NEW WIDGET ---
 
   Widget _buildSuggestionChip(String text, VoidCallback onTap) {
     return GestureDetector(
@@ -257,7 +305,6 @@ class _ChatMessageBubble extends StatelessWidget {
   final String message;
   final bool isUser;
 
-
   @override
   Widget build(BuildContext context) {
     // --- 5. UPDATED to use MarkdownBody instead of Text ---
@@ -310,7 +357,6 @@ class _ChatMessageBubble extends StatelessWidget {
       ),
     );
   }
-
 }
 
 // ---------------------------------
@@ -318,7 +364,7 @@ class _ChatMessageBubble extends StatelessWidget {
 // ---------------------------------
 class _GeminiChatService {
   // Use the model recommended by instructions
-  static const String model = "gemini-2.5-flash-preview-09-2025";
+  static const String model = "gemini-2.0-flash"; // Updated to latest
   static const String baseUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/";
 
@@ -422,4 +468,3 @@ class _GeminiChatService {
     }
   }
 }
-

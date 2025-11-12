@@ -46,7 +46,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   bool _patternBackgroundEnabled = false;
   late List<Widget> _pages;
 
-
   int _currentStreak = 0;
   int _longestStreak = 0;
   bool _isLoadingStreak = true;
@@ -144,7 +143,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
     ));
 
-
     _fabRotationAnimation = Tween<double>(begin: 0.0, end: 0.125).animate(
       CurvedAnimation(parent: _fabExpandController, curve: Curves.easeInOut),
     );
@@ -152,10 +150,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _fabAnimationController.forward();
   }
 
-  // --- NEW: Combined method to fix streak race condition ---
+  // --- UPDATED: Combined method to fix streak race condition ---
   Future<void> _initializeUserData() async {
-    // 1. Record the login first
-    await StreakService.recordDailyLogin();
+    // 1. Record the login first and get the result
+    // --- MODIFIED: Capture the return value ---
+    final int? newStreak = await StreakService.recordDailyLogin();
 
     // 2. NOW load streak data (for app bar)
     await _loadStreakData();
@@ -165,6 +164,14 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       Provider.of<DailyLogProvider>(context, listen: false)
           .loadEntriesForDate(DateTime.now());
     }
+
+    // 4. --- ADDED: Show popup if a new streak was recorded ---
+    if (newStreak != null && newStreak > 0 && mounted) {
+      // Wait a tiny bit for the UI to be ready
+      await Future.delayed(const Duration(milliseconds: 500));
+      _showStreakWelcomePopup(newStreak);
+    }
+    // --------------------------------------------------------
   }
   // --------------------------------------------------------
 
@@ -353,6 +360,121 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     }
   }
 
+// --- NEW: Streak Welcome Popup (UPDATED per your request) ---
+  void _showStreakWelcomePopup(int streakCount) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          // --- CHANGED: Set to white ---
+          backgroundColor: Colors.grey[100],
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          // --- CHANGED: Reduced padding ---
+          contentPadding: const EdgeInsets.all(20),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Stars (Kept yellow for accent)
+
+              // --- CHANGED: Reduced height ---
+              const SizedBox(height: 6),
+              // Fire Icon (Kept orange)
+              Icon(
+                Icons.local_fire_department_rounded,
+                color: Colors.orange[400],
+                size: 80,
+              ),
+              // --- CHANGED: Reduced height ---
+              const SizedBox(height: 12),
+              // Streak Number
+              Text(
+                '$streakCount',
+                style: TextStyle(
+                  // --- CHANGED: Set to black ---
+                  color: Colors.black87,
+                  fontSize: 72,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              // "Day streak" text (Kept orange)
+              Text(
+                'Day streak',
+                style: TextStyle(
+                  color: Colors.orange[400],
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              // --- CHANGED: Reduced height ---
+              const SizedBox(height: 20),
+              // Static Week
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+                    .map((day) => Column(
+                  children: [
+                    Text(day,
+                        style: TextStyle(
+                          // --- CHANGED: Darker grey for light bg ---
+                          color: Colors.grey[700],
+                          fontSize: 14,
+                        )),
+                    const SizedBox(height: 4),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        // --- CHANGED: Lighter grey for light bg ---
+                        color: Colors.grey[300],
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ))
+                    .toList(),
+              ),
+              // --- CHANGED: Reduced height ---
+              const SizedBox(height: 20),
+              // Message
+              Text(
+                "You're on a $streakCount-day streak! Keep it going! 🔥",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  // --- CHANGED: Darker grey for light bg ---
+                  color: Colors.grey[700],
+                  fontSize: 16,
+                ),
+              ),
+              // --- CHANGED: Reduced height ---
+              const SizedBox(height: 20),
+              // Continue Button
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  // --- CHANGED: Set to cyan ---
+                  backgroundColor: Colors.cyan[600],
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Continue',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
   void _showStreakDialog(bool isDark, double font(double size)) {
     showDialog(
       context: context,
@@ -370,7 +492,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               children: [
                 Icon(
                   Icons.local_fire_department,
-                  color: AppColors.primary(isDark),
+                  // --- CHANGED: A consistent orange color for the title icon ---
+                  color: Colors.orange[600],
                   size: font(0.06),
                 ),
                 const SizedBox(width: 8),
@@ -387,19 +510,23 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // --- UPDATED: This call now passes a Color AND isDark ---
                 _buildStreakStatRow(
                   'Current Streak',
                   '$_currentStreak days',
                   Icons.whatshot,
-                  isDark,
+                  Colors.orange[600]!, // <-- The color for the "Current Streak" icon
+                  isDark,               // <-- Pass isDark for the text
                   font,
                 ),
                 const SizedBox(height: 16),
+                // --- UPDATED: This call now passes a Color AND isDark ---
                 _buildStreakStatRow(
                   'Longest Streak',
                   '$_longestStreak days',
                   Icons.emoji_events,
-                  isDark,
+                  Colors.yellow[700]!, // <-- The color for the "Longest Streak" icon
+                  isDark,              // <-- Pass isDark for the text
                   font,
                 ),
                 const SizedBox(height: 16),
@@ -419,8 +546,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 child: Text(
                   'Close',
                   style: TextStyle(
-                    color: AppColors.primary(isDark),
+                    // --- CHANGED: Use a more standard "action" color ---
+                    color: isDark ? Colors.blue[300] : Colors.blue[600],
                     fontSize: font(0.04),
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
@@ -428,23 +557,24 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           ),
     );
   }
-
+  // --- UPDATED: This function now takes a 'Color' for the icon ---
   Widget _buildStreakStatRow(String title,
       String value,
       IconData icon,
-      bool isDark,
+      Color iconColor, // <-- CHANGED: This now accepts a Color
+      bool isDark,      // <-- ADDED: Pass isDark for text colors
       double Function(double) font,) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Row(
           children: [
-            Icon(icon, color: AppColors.primary(isDark), size: font(0.045)),
+            Icon(icon, color: iconColor, size: font(0.045)), // <-- USES iconColor
             const SizedBox(width: 8),
             Text(
               title,
               style: TextStyle(
-                color: AppColors.textSecondary(isDark),
+                color: AppColors.textSecondary(isDark), // Uses isDark
                 fontSize: font(0.04),
               ),
             ),
@@ -453,7 +583,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         Text(
           value,
           style: TextStyle(
-            color: AppColors.textPrimary(isDark),
+            color: AppColors.textPrimary(isDark), // Uses isDark
             fontSize: font(0.045),
             fontWeight: FontWeight.bold,
           ),
@@ -461,7 +591,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       ],
     );
   }
-
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery

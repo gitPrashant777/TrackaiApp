@@ -5,6 +5,7 @@ import 'package:flutter_markdown/flutter_markdown.dart'; // ✅ For live preview
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../admin_panel_screen.dart';
 import 'ManageReviewersScreen.dart' show Reviewer, ReviewerService;
 import 'article_service.dart';
 
@@ -20,17 +21,13 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
   final _markdownController = TextEditingController();
   final _takeawayController = TextEditingController();
   final _referencesController = TextEditingController();
+  final _categoryController = TextEditingController(); // --- ADDED ---
 
-  final List<String> _categories = [
-    'Reproductive Health 101',
-    'Periods',
-    'Fertility',
-    'Pregnancy',
-    'Sex',
-    'Health & Wellness',
-    'Mental Health'
-  ];
-  String? _selectedCategory;
+  // --- REMOVED ---
+  // final List<String> _categories = [ ... ];
+  // String? _selectedCategory;
+  // --- END REMOVED ---
+
   List<Reviewer> _reviewers = [];
   Reviewer? _selectedReviewer;
 
@@ -45,7 +42,9 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
   void initState() {
     super.initState();
     _fetchReviewers();
-    _selectedCategory = _categories.first;
+    // --- REMOVED ---
+    // _selectedCategory = _categories.first;
+    // --- END REMOVED ---
   }
 
   @override
@@ -54,6 +53,7 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
     _markdownController.dispose();
     _takeawayController.dispose();
     _referencesController.dispose();
+    _categoryController.dispose(); // --- ADDED ---
     super.dispose();
   }
 
@@ -88,30 +88,43 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
     }
   }
 
+  // --- ADDED: Helper function to format category ---
+  String _formatCategory(String input) {
+    if (input.isEmpty) return '';
+    // Trims whitespace, converts to lowercase, then capitalizes first letter
+    String trimmed = input.trim().toLowerCase();
+    return '${trimmed[0].toUpperCase()}${trimmed.substring(1)}';
+  }
+  // --- END ADDED ---
+
   void _clearForm() {
     _titleController.clear();
     _markdownController.clear();
     _takeawayController.clear();
     _referencesController.clear();
+    _categoryController.clear(); // --- ADDED ---
     setState(() {
       _selectedImage = null;
-      _selectedCategory = _categories.first;
-      _selectedReviewer =
-      _reviewers.isNotEmpty ? _reviewers.first : null;
+      // --- REMOVED ---
+      // _selectedCategory = _categories.first;
+      // --- END REMOVED ---
+      _selectedReviewer = _reviewers.isNotEmpty ? _reviewers.first : null;
     });
   }
 
   Future<void> _publishArticle() async {
+    // --- MODIFIED: Updated validation check ---
     if (_titleController.text.isEmpty ||
         _markdownController.text.isEmpty ||
         _selectedReviewer == null ||
         _selectedImage == null ||
-        _selectedCategory == null ||
+        _categoryController.text.isEmpty || // <-- Changed
         _takeawayController.text.isEmpty ||
         _referencesController.text.isEmpty) {
       _showSnackBar('Please fill all fields properly.', isError: true);
       return;
     }
+    // --- END MODIFIED ---
 
     setState(() {
       _isUploading = true;
@@ -124,9 +137,13 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
           .where((s) => s.trim().isNotEmpty)
           .toList();
 
+      // --- MODIFIED: Format the category string before sending ---
+      final String formattedCategory = _formatCategory(_categoryController.text);
+      // --- END MODIFIED ---
+
       await ArticleService.createArticle(
         title: _titleController.text,
-        category: _selectedCategory!,
+        category: formattedCategory, // <-- Changed
         content: _markdownController.text,
         reviewer: _selectedReviewer!,
         imageFile: _selectedImage!,
@@ -152,6 +169,7 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return; // --- ADDED: Safety check
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -186,7 +204,10 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
   }
 
   Future<bool> _onWillPop() async {
-    SystemNavigator.pop();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const AdminPanelScreen()),
+    );
     return false;
   }
 
@@ -224,7 +245,9 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
           child: Column(
             children: [
               _buildTextField(_titleController, 'Title'),
-              _buildCategoryDropdown(),
+              // --- MODIFIED: Replaced dropdown with text field ---
+              _buildTextField(_categoryController, 'Category'),
+              // --- END MODIFIED ---
               _buildImagePicker(),
               const SizedBox(height: 16),
               _buildReviewerDropdown(),
@@ -367,33 +390,9 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
     );
   }
 
-  Widget _buildCategoryDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      margin: const EdgeInsets.only(bottom: 16.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          isExpanded: true,
-          value: _selectedCategory,
-          dropdownColor: Colors.white,
-          style: const TextStyle(color: Colors.black, fontSize: 16),
-          onChanged: (String? newValue) {
-            setState(() {
-              _selectedCategory = newValue;
-            });
-          },
-          items: _categories
-              .map((value) =>
-              DropdownMenuItem<String>(value: value, child: Text(value)))
-              .toList(),
-        ),
-      ),
-    );
-  }
+  // --- REMOVED ---
+  // Widget _buildCategoryDropdown() { ... }
+  // --- END REMOVED ---
 
   Widget _buildImagePicker() {
     return GestureDetector(
@@ -405,8 +404,9 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color:
-            _selectedImage == null ? Colors.grey[400]! : const Color(0xFFE91E63),
+            color: _selectedImage == null
+                ? Colors.grey[400]!
+                : const Color(0xFFE91E63),
           ),
         ),
         child: _selectedImage != null
@@ -424,8 +424,7 @@ class _PublishArticleScreenState extends State<PublishArticleScreen> {
                 size: 40, color: Colors.grey),
             const SizedBox(height: 8),
             Text('Tap to add cover image',
-                style:
-                TextStyle(color: Colors.grey[700], fontSize: 16)),
+                style: TextStyle(color: Colors.grey[700], fontSize: 16)),
           ],
         ),
       ),
