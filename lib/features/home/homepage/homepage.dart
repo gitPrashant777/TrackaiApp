@@ -166,7 +166,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     }
 
     // 4. --- ADDED: Show popup if a new streak was recorded ---
-    if (newStreak != null && newStreak > 0 && mounted) {
+    if (newStreak != null && newStreak >=1 && mounted) {
       // Wait a tiny bit for the UI to be ready
       await Future.delayed(const Duration(milliseconds: 500));
       _showStreakWelcomePopup(newStreak);
